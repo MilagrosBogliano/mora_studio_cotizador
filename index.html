@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mora Studio · Cotizador 3D</title>
+<meta name="theme-color" content="#141218">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cotizador">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --violeta:#7B3FE4; --violeta-osc:#5B23C2; --lila:#EFE7FF; --lila2:#DCCBFF;
+  --negro:#141218; --gris:#6B6578; --borde:#E4DCF5; --fondo:#F7F4FC; --blanco:#fff;
+  --ok:#1E9E5A; --mal:#D93C5B;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Nunito,system-ui,sans-serif;background:var(--fondo);color:var(--negro);font-size:16px;-webkit-text-size-adjust:100%}
+header{background:var(--negro);color:#fff;padding:14px 16px 0;position:sticky;top:0;z-index:20}
+.marca{display:flex;align-items:center;gap:12px;max-width:980px;margin:0 auto}
+.logo{width:46px;height:46px;border-radius:50%;background:var(--violeta);border:3px solid #fff;display:grid;place-items:center;flex:none}
+.logo span{font-family:'Luckiest Guy',cursive;font-size:13px;line-height:.9;text-align:center;color:#fff;-webkit-text-stroke:.6px #000;text-shadow:1px 1px 0 #000}
+.marca h1{font-family:'Luckiest Guy',cursive;font-weight:400;font-size:24px;margin:0;letter-spacing:.5px;line-height:1}
+.marca small{display:block;color:#BFA8F5;font-size:13px;font-weight:700;margin-top:3px}
+nav{display:flex;gap:4px;overflow-x:auto;max-width:980px;margin:12px auto 0;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:none;background:none;border:0;color:#CFC6E3;font:700 15px Nunito,sans-serif;padding:10px 14px;border-bottom:3px solid transparent;cursor:pointer}
+nav button.activo{color:#fff;border-bottom-color:var(--violeta)}
+main{max-width:980px;margin:0 auto;padding:16px 14px 90px}
+.vista{display:none}.vista.activa{display:block}
+.grid{display:grid;gap:16px}
+@media(min-width:860px){.grid.calc{grid-template-columns:1.15fr .85fr;align-items:start}.resumen-wrap{position:sticky;top:120px}}
+.card{background:#fff;border:1px solid var(--borde);border-radius:16px;padding:16px}
+.card h2{font-size:17px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.card h2 .num{background:var(--violeta);color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:13px}
+label{display:block;font-weight:700;font-size:14px;margin-bottom:4px;color:#3A3446}
+.ayuda{font-weight:600;color:var(--gris);font-size:12.5px}
+input,select{width:100%;font:600 16px Nunito,sans-serif;padding:11px 12px;border:1.5px solid var(--borde);border-radius:11px;background:#fff;color:var(--negro);outline:none}
+input:focus,select:focus{border-color:var(--violeta);box-shadow:0 0 0 3px var(--lila)}
+.fila{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-bottom:12px}
+.fila.tres{grid-template-columns:1fr 1fr 1fr}
+.fila.una{grid-template-columns:1fr}
+.campo{min-width:0}
+.btn{font:800 15px Nunito,sans-serif;border:0;border-radius:12px;padding:12px 16px;cursor:pointer;background:var(--violeta);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:translateY(1px)}
+.btn.sec{background:var(--lila);color:var(--violeta-osc)}
+.btn.neg{background:var(--negro)}
+.btn.chico{padding:8px 11px;font-size:13.5px;border-radius:10px}
+.btn.peligro{background:#FDE8EC;color:var(--mal)}
+.btn[disabled]{opacity:.5;cursor:default}
+.acciones{display:flex;gap:8px;flex-wrap:wrap}
+.filrow{display:grid;grid-template-columns:1fr 92px 38px;gap:8px;margin-bottom:8px;align-items:center}
+.x{background:#F3EEFB;border:0;border-radius:10px;height:44px;font-size:20px;color:var(--gris);cursor:pointer}
+.resumen{background:var(--negro);color:#fff;border-radius:18px;padding:18px;overflow:hidden;position:relative}
+.resumen h2{font-family:'Luckiest Guy',cursive;font-weight:400;letter-spacing:.5px;font-size:20px;margin:0 0 12px;color:#fff}
+.linea{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed #3a3446;font-size:15px}
+.linea span:first-child{color:#CFC6E3}
+.linea b{font-variant-numeric:tabular-nums}
+.linea.sub{border-bottom:1px solid #4b4458;font-weight:800}
+.linea.sub span:first-child{color:#fff}
+.precio{margin-top:14px;background:var(--violeta);border-radius:14px;padding:14px;text-align:center;border:3px solid #fff}
+.precio small{display:block;font-weight:800;font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:#EDE3FF}
+.precio .monto{font-family:'Luckiest Guy',cursive;font-size:40px;line-height:1.1;text-shadow:2px 2px 0 #000;-webkit-text-stroke:1px #000;font-variant-numeric:tabular-nums}
+.precio .unit{font-weight:700;font-size:14px;color:#EDE3FF}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.mini div{background:#211d29;border-radius:11px;padding:9px 10px}
+.mini small{display:block;color:#AFA5C4;font-size:12px;font-weight:700}
+.mini b{font-size:17px}
+.resumen .acciones{margin-top:14px}
+.resumen .btn.sec{background:#2A2533;color:#fff}
+.lista{display:grid;gap:10px}
+.item{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:13px 14px;display:flex;gap:12px;align-items:center}
+.item .info{flex:1;min-width:0}
+.item .t{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .d{color:var(--gris);font-size:13.5px;font-weight:600}
+.item .m{font-weight:800;color:var(--violeta-osc);font-size:17px;text-align:right;white-space:nowrap}
+.chip{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800}
+.chip.pendiente{background:#FFF3D6;color:#9A6A00}.chip.produccion{background:#E3ECFF;color:#2457C5}.chip.listo{background:#D9F5EF;color:#0E7C66}
+.chip.pagado{background:#E3F6EB;color:var(--ok)}.chip.debe{background:#FDE8EC;color:var(--mal)}.chip.gris{background:#F1EEF6;color:var(--gris)}
+.pedido{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:13px 14px;cursor:pointer;border-left:5px solid var(--violeta)}
+.pedido.tarde{border-left-color:var(--mal)}.pedido.listo{border-left-color:#0E7C66}
+.ped-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.ped-top b{font-size:16.5px}
+.ped-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+.pedido .d{margin-top:3px}
+.tarde-txt{color:var(--mal);font-weight:800}
+.mini .stat,.stat{background:#fff;border:1px solid var(--borde);border-radius:11px;padding:9px 10px}
+.stat small{display:block;color:var(--gris);font-size:12px;font-weight:700}.stat b{font-size:18px}
+.stat.alerta b{color:var(--mal)}
+.mat-lista{display:grid;gap:6px}
+.mat-lista div{display:flex;justify-content:space-between;font-size:14.5px;font-weight:600;border-bottom:1px dashed var(--borde);padding:4px 0}
+.seccion-modal{background:var(--fondo);border-radius:14px;padding:12px;margin-top:14px}
+.seccion-modal h4{margin:0 0 10px;font-size:15px}
+.rapidos{display:flex;gap:6px;margin-top:6px}
+.wsp-link{color:var(--ok);font-weight:800;text-decoration:none}.chip.aceptado{background:#E3F6EB;color:var(--ok)}.chip.entregado{background:var(--lila);color:var(--violeta-osc)}.chip.rechazado{background:#FDE8EC;color:var(--mal)}
+.vacio{text-align:center;color:var(--gris);padding:28px 14px;border:2px dashed var(--borde);border-radius:16px;background:#fff}
+.vacio b{display:block;color:var(--negro);font-size:17px;margin-bottom:4px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.top h2{margin:0;font-size:20px}
+.aviso{background:var(--lila);color:var(--violeta-osc);border-radius:12px;padding:10px 12px;font-weight:700;font-size:13.5px;margin-bottom:14px}
+.aviso.warn{background:#FFF3D6;color:#7A5300}
+@media(max-width:480px){.marca small{display:none}.estado-db{max-width:90px}}
+.estado-db{font-size:12px;font-weight:700;color:#BFA8F5;margin-left:auto;text-align:right}
+.modal-fondo{position:fixed;inset:0;background:rgba(20,18,24,.55);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.modal-fondo.abierto{display:flex}
+.modal{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:18px 16px 22px;max-height:92vh;overflow:auto}
+@media(min-width:600px){.modal-fondo{align-items:center}.modal{border-radius:20px}}
+.modal h3{margin:0 0 14px;font-size:19px}
+.login{position:fixed;inset:0;background:var(--negro);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:40;padding:20px}
+.login-card{background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:360px;text-align:left}
+.login-card h2{font-family:'Luckiest Guy',cursive;font-weight:400;text-align:center;margin:0 0 16px;font-size:26px}
+.login-msg{color:#FFB3C2;font-weight:700;margin-top:14px;text-align:center;max-width:360px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(120px);background:var(--negro);color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;transition:transform .25s;z-index:60;max-width:90vw;text-align:center}
+.toast.ver{transform:translateX(-50%) translateY(0)}
+.buscar{margin-bottom:12px}
+.filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filtros button{border:1.5px solid var(--borde);background:#fff;border-radius:999px;padding:6px 12px;font:700 13.5px Nunito,sans-serif;cursor:pointer;color:var(--gris)}
+.filtros button.activo{background:var(--negro);border-color:var(--negro);color:#fff}
+.detalle-linea{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--borde);font-size:15px}
+.detalle-linea span:first-child{color:var(--gris);font-weight:600}
+textarea{width:100%;font:600 14px Nunito,sans-serif;padding:10px;border:1.5px solid var(--borde);border-radius:11px;min-height:150px}
+.det{font-size:12.5px;color:var(--gris);font-weight:600;margin-top:-4px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="marca">
+    <div class="logo"><span>MORA<br>STUDIO</span></div>
+    <div><h1>Cotizador 3D</h1><small>Mora Studio · costos y presupuestos</small></div>
+    <div class="estado-db" id="estadoDb"></div>
+  </div>
+  <nav id="nav">
+    <button data-v="pedidos">Pedidos</button>
+    <button data-v="calcular" class="activo">Calcular</button>
+    <button data-v="presupuestos">Presupuestos</button>
+    <button data-v="clientes">Clientes</button>
+    <button data-v="filamentos">Filamentos</button>
+    <button data-v="impresoras">Impresoras</button>
+    <button data-v="ajustes">Ajustes</button>
+  </nav>
+</header>
+
+<main>
+<!-- CALCULAR -->
+<section class="vista activa" id="v-calcular">
+  <div id="avisoSetup"></div>
+  <div class="grid calc">
+    <div class="grid">
+      <div class="card">
+        <h2><span class="num">1</span>Pedido</h2>
+        <div class="fila">
+          <div class="campo"><label>Cliente</label><input id="cCliente" placeholder="Nombre o @usuario" list="dlClientes" autocomplete="off"><datalist id="dlClientes"></datalist></div>
+          <div class="campo"><label>Pieza</label><input id="cPieza" placeholder="Ej: llavero corazón"></div>
+        </div>
+        <div class="fila">
+          <div class="campo"><label>Unidades</label><input id="cCantidad" type="number" min="1" value="1" inputmode="numeric"></div>
+          <div class="campo"><label>Impresora</label><select id="cImpresora"></select></div>
+        </div>
+        <div class="det">Cargá gramos y tiempo del pedido completo (todas las unidades). Te muestro el precio por unidad abajo.</div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">2</span>Material</h2>
+        <div id="filRows"></div>
+        <button class="btn sec chico" id="addFil">+ Agregar otro filamento/color</button>
+        <div class="det" style="margin-top:8px">Incluí soportes y purga en los gramos (los ves en el slicer).</div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">3</span>Tiempo</h2>
+        <div class="fila">
+          <div class="campo"><label>Impresión (horas)</label><input id="cHoras" type="number" min="0" step="1" value="0" inputmode="numeric"></div>
+          <div class="campo"><label>+ minutos</label><input id="cMin" type="number" min="0" step="1" value="0" inputmode="numeric"></div>
+        </div>
+        <div class="fila">
+          <div class="campo"><label>Tu trabajo (min) <span class="ayuda">preparar, retirar, limpiar, empacar</span></label><input id="cTrabajo" type="number" min="0" value="0" inputmode="numeric"></div>
+          <div class="campo"><label>Diseño/modelado (min) <span class="ayuda">si lo hacés vos</span></label><input id="cDiseno" type="number" min="0" value="0" inputmode="numeric"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">4</span>Extras y margen</h2>
+        <div class="fila">
+          <div class="campo"><label>Postprocesado $ <span class="ayuda">pintura, barniz, imanes…</span></label><input id="cPost" type="number" min="0" value="0" inputmode="decimal"></div>
+          <div class="campo"><label>Empaque $</label><input id="cEmpaque" type="number" min="0" value="0" inputmode="decimal"></div>
+        </div>
+        <div class="fila tres">
+          <div class="campo"><label>Merma %</label><input id="cMerma" type="number" min="0" max="100" inputmode="decimal"></div>
+          <div class="campo"><label>Ganancia %</label><input id="cMargen" type="number" min="0" max="95" inputmode="decimal"></div>
+          <div class="campo"><label>Comisión %</label><input id="cComision" type="number" min="0" max="50" inputmode="decimal"></div>
+        </div>
+        <div class="det">Ganancia = margen sobre el precio de venta. Comisión = Mercado Pago, tarjeta, plataforma, etc.</div>
+        <div class="fila una"><div class="campo"><label>Notas</label><input id="cNotas" placeholder="Color, detalles, dirección de envío…"></div></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">5</span>Pedido y pago</h2>
+        <div class="fila">
+          <div class="campo"><label>Estado</label><select id="cEstado"></select></div>
+          <div class="campo"><label>Fecha de entrega</label><input id="cEntrega" type="date"></div>
+        </div>
+        <div class="fila">
+          <div class="campo"><label>Forma de pago</label><select id="cPago"></select></div>
+          <div class="campo"><label>Cobrado $</label><input id="cCobrado" type="number" min="0" value="0" inputmode="decimal">
+            <div class="rapidos"><button class="btn sec chico" type="button" id="cSena">Seña 50%</button><button class="btn sec chico" type="button" id="cTotal">Total</button></div></div>
+        </div>
+        <div class="det">Si es solo un presupuesto, dejalo en "Presupuestado". Cuando el cliente confirma, pasalo a "A fabricar" y aparece en Pedidos.</div>
+      </div>
+    </div>
+
+    <div class="resumen-wrap">
+      <div class="resumen">
+        <h2>Presupuesto</h2>
+        <div class="linea"><span>Material</span><b id="rMat">$0</b></div>
+        <div class="linea"><span>Luz</span><b id="rLuz">$0</b></div>
+        <div class="linea"><span>Desgaste impresora</span><b id="rDesg">$0</b></div>
+        <div class="linea"><span>Mano de obra</span><b id="rMO">$0</b></div>
+        <div class="linea"><span>Diseño</span><b id="rDis">$0</b></div>
+        <div class="linea"><span>Extras</span><b id="rExt">$0</b></div>
+        <div class="linea sub"><span>Subtotal</span><b id="rSub">$0</b></div>
+        <div class="linea"><span id="rMermaL">Merma</span><b id="rMerma">$0</b></div>
+        <div class="linea sub"><span>Costo real</span><b id="rCosto">$0</b></div>
+        <div class="precio">
+          <small>Precio de venta</small>
+          <div class="monto" id="rPrecio">$0</div>
+          <div class="unit" id="rUnit"></div>
+        </div>
+        <div class="mini">
+          <div><small>Ganancia</small><b id="rGan">$0</b></div>
+          <div><small>Comisión</small><b id="rCom">$0</b></div>
+          <div><small>Cobrado</small><b id="rCob">$0</b></div>
+          <div><small>Saldo</small><b id="rSaldo">$0</b></div>
+        </div>
+        <div class="acciones">
+          <button class="btn" id="btnGuardar" style="flex:1">Guardar presupuesto</button>
+          <button class="btn sec" id="btnWsp">Texto WhatsApp</button>
+          <button class="btn sec" id="btnLimpiar">Nuevo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PEDIDOS -->
+<section class="vista" id="v-pedidos">
+  <div class="top"><h2>Pedidos en curso</h2><button class="btn chico" id="pedNuevo">+ Nuevo pedido</button></div>
+  <div class="mini" id="statsPed" style="margin:0 0 14px"></div>
+  <div class="card" id="matPed" style="margin-bottom:14px"></div>
+  <div class="filtros" id="filtrosPed">
+    <button data-f="activos" class="activo">Todos</button>
+    <button data-f="aceptado">A fabricar</button>
+    <button data-f="produccion">Imprimiendo</button>
+    <button data-f="listo">Listos</button>
+    <button data-f="debe">Con saldo</button>
+  </div>
+  <div class="lista" id="listaPed"></div>
+</section>
+
+<!-- CLIENTES -->
+<section class="vista" id="v-clientes">
+  <div class="top"><h2>Clientes</h2><button class="btn chico" id="addCliente">+ Nuevo cliente</button></div>
+  <input class="buscar" id="buscarCli" placeholder="Buscar cliente…">
+  <div class="lista" id="listaCli"></div>
+</section>
+
+<!-- PRESUPUESTOS -->
+<section class="vista" id="v-presupuestos">
+  <div class="top"><h2>Todos los presupuestos</h2><button class="btn sec chico" id="btnCsv" style="display:none">Exportar Excel (CSV)</button></div>
+  <input class="buscar" id="buscar" placeholder="Buscar por cliente o pieza…">
+  <div class="filtros" id="filtros">
+    <button data-f="todos" class="activo">Todos</button>
+    <button data-f="pendiente">Presupuestados</button>
+    <button data-f="curso">En curso</button>
+    <button data-f="entregado">Entregados</button>
+    <button data-f="rechazado">Rechazados</button>
+  </div>
+  <div class="mini" id="statsPres" style="margin:0 0 14px"></div>
+  <div class="lista" id="listaPres"></div>
+</section>
+
+<!-- FILAMENTOS -->
+<section class="vista" id="v-filamentos">
+  <div class="top"><h2>Filamentos</h2><button class="btn chico" id="addFilamento">+ Nuevo filamento</button></div>
+  <div class="lista" id="listaFil"></div>
+</section>
+
+<!-- IMPRESORAS -->
+<section class="vista" id="v-impresoras">
+  <div class="top"><h2>Impresoras</h2><button class="btn chico" id="addImpresora">+ Nueva impresora</button></div>
+  <div class="lista" id="listaImp"></div>
+</section>
+
+<!-- AJUSTES -->
+<section class="vista" id="v-ajustes">
+  <div class="card">
+    <h2>Valores generales</h2>
+    <div class="fila">
+      <div class="campo"><label>Precio del kWh $ <span class="ayuda">mirá tu factura de luz</span></label><input id="aKwh" type="number" min="0" inputmode="decimal"></div>
+      <div class="campo"><label>Tu hora de trabajo $</label><input id="aHora" type="number" min="0" inputmode="decimal"></div>
+    </div>
+    <div class="fila">
+      <div class="campo"><label>Hora de diseño $</label><input id="aDiseno" type="number" min="0" inputmode="decimal"></div>
+      <div class="campo"><label>Redondear precio a</label>
+        <select id="aRedondeo"><option value="1">Sin redondeo</option><option value="10">$10</option><option value="50">$50</option><option value="100">$100</option><option value="500">$500</option><option value="1000">$1.000</option></select></div>
+    </div>
+    <div class="fila tres">
+      <div class="campo"><label>Merma %</label><input id="aMerma" type="number" min="0" inputmode="decimal"></div>
+      <div class="campo"><label>Ganancia %</label><input id="aMargen" type="number" min="0" max="95" inputmode="decimal"></div>
+      <div class="campo"><label>Comisión %</label><input id="aComision" type="number" min="0" max="50" inputmode="decimal"></div>
+    </div>
+    <div class="det">Estos valores se cargan solos en cada presupuesto nuevo; igual podés cambiarlos pieza por pieza.</div>
+    <button class="btn" id="guardarAjustes">Guardar ajustes</button>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h2>Sesión</h2>
+    <div class="det" style="margin:0 0 10px">Conectada como <b id="quienSoy"></b></div>
+    <button class="btn peligro" id="btnSalir">Cerrar sesión</button>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h2>¿Cómo calcula?</h2>
+    <div class="det" style="margin:0;line-height:1.55">
+      <b>Material</b> = gramos × (precio del rollo ÷ gramos del rollo)<br>
+      <b>Luz</b> = horas × watts ÷ 1000 × precio kWh<br>
+      <b>Desgaste</b> = horas × (precio impresora ÷ vida útil en horas + mantenimiento por hora)<br>
+      <b>Mano de obra</b> = minutos ÷ 60 × tu hora · <b>Diseño</b> igual con la hora de diseño<br>
+      <b>Costo real</b> = subtotal + merma %<br>
+      <b>Precio</b> = costo real ÷ (1 − ganancia% − comisión%)
+    </div>
+  </div>
+</section>
+</main>
+
+<div id="login" class="login">
+  <form id="loginForm" class="login-card">
+    <div class="logo" style="width:70px;height:70px;margin:0 auto 10px"><span style="font-size:18px">MORA<br>STUDIO</span></div>
+    <h2>Cotizador 3D</h2>
+    <label>Email</label><input id="lEmail" type="email" autocomplete="username" required>
+    <label style="margin-top:10px">Contraseña</label><input id="lPass" type="password" autocomplete="current-password" required>
+    <button class="btn" id="loginBtn" style="width:100%;margin-top:16px">Entrar</button>
+  </form>
+  <div id="loginMsg" class="login-msg"></div>
+</div>
+<div class="modal-fondo" id="modal"><div class="modal" id="modalCont"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- utilidades ----------
+const $ = id => document.getElementById(id);
+const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : 0; };
+const fmt = (n, dec = 0) => '$' + (n || 0).toLocaleString('es-AR', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('ver'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('ver'), 2200); }
+
+const ESTADOS = {pendiente: 'Presupuestado', aceptado: 'A fabricar', produccion: 'Imprimiendo', listo: 'Listo', entregado: 'Entregado', rechazado: 'Rechazado'};
+const PAGOS = {mp_mili: 'MP Mili', mp_lucas: 'MP Lucas', efectivo: 'Efectivo'};
+const ACTIVOS = ['aceptado', 'produccion', 'listo'];
+const VENDIDOS = ['aceptado', 'produccion', 'listo', 'entregado'];
+const optsEstado = sel => Object.entries(ESTADOS).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
+const optsPago = sel => '<option value="">Sin definir</option>' + Object.entries(PAGOS).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
+const chipEstado = e => `<span class="chip ${esc(e)}">${esc(ESTADOS[e] || e)}</span>`;
+const saldoDe = p => Math.max(0, Math.round(num(p.resultado?.precio) - num(p.cobrado)));
+const hoyISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const fechaCorta = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}`; };
+const diasHasta = iso => Math.round((new Date(iso + 'T00:00:00') - new Date(hoyISO() + 'T00:00:00')) / 86400000);
+function chipPago(p){
+  const s = saldoDe(p), fp = PAGOS[p.formaPago] || '';
+  if (!num(p.resultado?.precio)) return '';
+  if (s <= 0) return `<span class="chip pagado">Pagado${fp ? ' · ' + fp : ''}</span>`;
+  return `<span class="chip debe">Debe ${fmt(s)}${num(p.cobrado) ? ' · seña ' + fmt(p.cobrado) : ''}${fp ? ' · ' + fp : ''}</span>`;
+}
+const CONFIG_DEF = {kwh: 0, hora: 0, diseno: 0, merma: 10, margen: 40, comision: 0, redondeo: 100};
+
+// ---------- almacenamiento: Supabase ----------
+const estado = {config: {...CONFIG_DEF}, filamentos: [], impresoras: [], presupuestos: [], clientes: []};
+const modoLocal = false;
+let sb = null, usuario = null, iniciado = false;
+const nuevoUuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c === 'x' ? r : (r&3|8)).toString(16); }));
+
+// presupuestos: app (camelCase) <-> tabla (snake_case)
+const presFromDb = r => ({
+  id: r.id, fecha: r.fecha, cliente: r.cliente || '', pieza: r.pieza || '', cantidad: num(r.cantidad) || 1,
+  impresoraId: r.impresora_id || '', horas: num(r.horas), trabajoMin: num(r.trabajo_min), disenoMin: num(r.diseno_min),
+  post: num(r.post), empaque: num(r.empaque), merma: num(r.merma), margen: num(r.margen), comision: num(r.comision),
+  notas: r.notas || '', estado: r.estado || 'pendiente', filamentos: r.filamentos || [], resultado: r.resultado || {}, creadoPor: r.creado_por || '',
+  clienteId: r.cliente_id || '', fechaEntrega: r.fecha_entrega || '', formaPago: r.forma_pago || '', cobrado: num(r.cobrado)
+});
+const presToDb = p => ({
+  fecha: p.fecha, cliente: p.cliente, pieza: p.pieza, cantidad: p.cantidad, impresora_id: p.impresoraId || null,
+  horas: p.horas, trabajo_min: p.trabajoMin, diseno_min: p.disenoMin, post: p.post, empaque: p.empaque,
+  merma: p.merma, margen: p.margen, comision: p.comision, notas: p.notas, estado: p.estado,
+  filamentos: p.filamentos, resultado: p.resultado,
+  cliente_id: p.clienteId || null, fecha_entrega: p.fechaEntrega || null, forma_pago: p.formaPago || null, cobrado: num(p.cobrado),
+  precio: Math.round(num(p.resultado?.precio)), costo: Math.round(num(p.resultado?.costo)), ganancia: Math.round(num(p.resultado?.ganancia))
+});
+const numFila = r => { const o = {...r}; for (const k of ['precio','peso','watts','vida','mant']) if (k in o) o[k] = num(o[k]); return o; };
+
+async function cargar(col){
+  let q = sb.from(col).select('*');
+  q = col === 'presupuestos' ? q.order('fecha', {ascending: false}) : q.order('nombre');
+  const {data, error} = await q;
+  if (error) { toast('Error leyendo ' + col); console.error(error); return; }
+  estado[col] = col === 'presupuestos' ? data.map(presFromDb) : data.map(numFila);
+  render();
+}
+async function cargarConfig(){
+  const {data, error} = await sb.from('config').select('*').eq('id', 1).maybeSingle();
+  if (error) { console.error(error); return; }
+  const c = {...CONFIG_DEF}; if (data) for (const k in CONFIG_DEF) if (data[k] !== null && data[k] !== undefined) c[k] = num(data[k]);
+  estado.config = c; cargarAjustes(); aplicarDefaultsSiVacio(); render();
+}
+
+async function guardarDoc(col, id, data){
+  const fila = col === 'presupuestos' ? presToDb(data) : {...data};
+  delete fila.id; fila.id = id;
+  const {error} = await sb.from(col).upsert(fila);
+  if (error) { console.error(error); toast('No se pudo guardar: ' + (error.message || '')); throw error; }
+  await cargar(col);
+}
+async function borrarDoc(col, id){
+  const {error} = await sb.from(col).delete().eq('id', id);
+  if (error) { console.error(error); toast('No se pudo borrar'); return; }
+  await cargar(col);
+}
+async function guardarConfig(c){
+  const {error} = await sb.from('config').upsert({id: 1, ...c});
+  if (error) { console.error(error); toast('No se pudo guardar'); throw error; }
+  await cargarConfig();
+}
+
+let recargas = {};
+function escucharCambios(){
+  sb.channel('cambios').on('postgres_changes', {event: '*', schema: 'public'}, payload => {
+    const t = payload.table; clearTimeout(recargas[t]);
+    recargas[t] = setTimeout(() => t === 'config' ? cargarConfig() : cargar(t), 300);
+  }).subscribe();
+}
+
+async function iniciarDatos(){
+  if (!window.supabase || !window.CONFIG || !CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('TU-PROYECTO')) {
+    mostrarLogin('Falta configurar <b>config.js</b> con la URL y la clave de Supabase.'); return;
+  }
+  sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+  const {data: {session}} = await sb.auth.getSession();
+  sb.auth.onAuthStateChange((ev, ses) => { if (ses && !usuario) entrar(ses.user); if (!ses && usuario) location.reload(); });
+  if (session) entrar(session.user); else mostrarLogin();
+}
+async function entrar(u){
+  usuario = u; $('login').style.display = 'none';
+  $('estadoDb').textContent = '● ' + (u.email || 'Conectada');
+  $('quienSoy').textContent = u.email || '';
+  if (iniciado) return; iniciado = true;
+  await Promise.all([cargarConfig(), cargar('filamentos'), cargar('impresoras'), cargar('presupuestos'), cargar('clientes')]);
+  if (estado.presupuestos.some(p => ACTIVOS.includes(p.estado))) irA('pedidos');
+  escucharCambios();
+}
+function mostrarLogin(msg){
+  $('login').style.display = 'flex';
+  if (msg) { $('loginMsg').innerHTML = msg; $('loginForm').style.display = 'none'; }
+}
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('loginBtn'); btn.disabled = true; $('loginMsg').textContent = '';
+  const {error} = await sb.auth.signInWithPassword({email: $('lEmail').value.trim(), password: $('lPass').value});
+  btn.disabled = false;
+  if (error) $('loginMsg').textContent = 'Email o contraseña incorrectos';
+});
+$('btnSalir').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+// ---------- navegación ----------
+function irA(v){
+  document.querySelectorAll('.vista').forEach(s => s.classList.toggle('activa', s.id === 'v-' + v));
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('activo', b.dataset.v === v));
+  window.scrollTo(0, 0);
+}
+$('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) irA(b.dataset.v); });
+
+// ---------- calculadora ----------
+let filRows = [{filId: '', gramos: 0}];
+let editandoId = null;
+let defaultsAplicados = false;
+
+function aplicarDefaultsSiVacio(){
+  if (defaultsAplicados) return;
+  const c = estado.config;
+  $('cMerma').value = c.merma; $('cMargen').value = c.margen; $('cComision').value = c.comision;
+  defaultsAplicados = true; calcular();
+}
+
+function renderFilRows(){
+  const opts = '<option value="">Elegí filamento…</option>' + estado.filamentos.map(f => `<option value="${esc(f.id)}">${esc(f.nombre)}${f.color ? ' · ' + esc(f.color) : ''}</option>`).join('');
+  $('filRows').innerHTML = filRows.map((r, i) => `
+    <div class="filrow">
+      <select data-i="${i}" data-k="filId">${opts}</select>
+      <input data-i="${i}" data-k="gramos" type="number" min="0" placeholder="gramos" inputmode="decimal" value="${r.gramos || ''}">
+      <button class="x" data-del="${i}" title="Quitar" ${filRows.length === 1 ? 'style="visibility:hidden"' : ''}>×</button>
+    </div>`).join('');
+  $('filRows').querySelectorAll('select').forEach(s => s.value = filRows[s.dataset.i].filId);
+}
+$('filRows').addEventListener('input', e => {
+  const el = e.target; if (!el.dataset.k) return;
+  filRows[el.dataset.i][el.dataset.k] = el.dataset.k === 'gramos' ? num(el.value) : el.value; calcular();
+});
+$('filRows').addEventListener('click', e => { const d = e.target.dataset.del; if (d !== undefined) { filRows.splice(+d, 1); renderFilRows(); calcular(); } });
+$('addFil').onclick = () => { filRows.push({filId: '', gramos: 0}); renderFilRows(); };
+
+function renderImpSelect(){
+  const sel = $('cImpresora'); const v = sel.value;
+  sel.innerHTML = estado.impresoras.length ? estado.impresoras.map(p => `<option value="${esc(p.id)}">${esc(p.nombre)}</option>`).join('') : '<option value="">Sin impresoras cargadas</option>';
+  if (v && estado.impresoras.some(p => p.id === v)) sel.value = v;
+}
+
+function leerForm(){
+  return {
+    cliente: $('cCliente').value.trim(), pieza: $('cPieza').value.trim(),
+    cantidad: Math.max(1, Math.round(num($('cCantidad').value)) || 1),
+    impresoraId: $('cImpresora').value,
+    filamentos: filRows.map(r => ({...r})),
+    horas: num($('cHoras').value) + num($('cMin').value) / 60,
+    trabajoMin: num($('cTrabajo').value), disenoMin: num($('cDiseno').value),
+    post: num($('cPost').value), empaque: num($('cEmpaque').value),
+    merma: num($('cMerma').value), margen: num($('cMargen').value), comision: num($('cComision').value),
+    notas: $('cNotas').value.trim(),
+    estado: $('cEstado').value || 'pendiente', fechaEntrega: $('cEntrega').value, formaPago: $('cPago').value, cobrado: num($('cCobrado').value)
+  };
+}
+
+function computar(f){
+  const c = estado.config;
+  let mat = 0, gramos = 0; const detalleMat = [];
+  f.filamentos.forEach(r => {
+    const fil = estado.filamentos.find(x => x.id === r.filId);
+    const g = num(r.gramos); if (!g) return; gramos += g;
+    const pg = fil ? num(fil.precio) / (num(fil.peso) || 1000) : 0;
+    mat += g * pg; detalleMat.push({nombre: fil ? fil.nombre + (fil.color ? ' ' + fil.color : '') : 'Sin elegir', gramos: g});
+  });
+  const imp = estado.impresoras.find(x => x.id === f.impresoraId) || {};
+  const luz = f.horas * num(imp.watts) / 1000 * num(c.kwh);
+  const desgH = (num(imp.vida) > 0 ? num(imp.precio) / num(imp.vida) : 0) + num(imp.mant);
+  const desg = f.horas * desgH;
+  const mo = f.trabajoMin / 60 * num(c.hora);
+  const dis = f.disenoMin / 60 * num(c.diseno);
+  const ext = f.post + f.empaque;
+  const sub = mat + luz + desg + mo + dis + ext;
+  const merma = sub * f.merma / 100;
+  const costo = sub + merma;
+  const div = 1 - (f.margen + f.comision) / 100;
+  let precio = div > 0.05 ? costo / div : 0;
+  const red = num(c.redondeo) || 1;
+  if (precio > 0 && red > 1) precio = Math.ceil(precio / red) * red;
+  const comision = precio * f.comision / 100;
+  const ganancia = precio - comision - costo;
+  return {mat, luz, desg, mo, dis, ext, sub, merma, costo, precio, comision, ganancia, gramos, detalleMat, impresora: imp.nombre || '', unitario: precio / f.cantidad, divInvalido: div <= 0.05};
+}
+
+let ultimo = null;
+function calcular(){
+  const f = leerForm(); const r = computar(f); ultimo = {f, r};
+  $('rMat').textContent = fmt(r.mat); $('rLuz').textContent = fmt(r.luz); $('rDesg').textContent = fmt(r.desg);
+  $('rMO').textContent = fmt(r.mo); $('rDis').textContent = fmt(r.dis); $('rExt').textContent = fmt(r.ext);
+  $('rSub').textContent = fmt(r.sub); $('rMermaL').textContent = `Merma (${f.merma}%)`; $('rMerma').textContent = fmt(r.merma);
+  $('rCosto').textContent = fmt(r.costo);
+  $('rPrecio').textContent = r.divInvalido ? '—' : fmt(r.precio);
+  $('rUnit').textContent = r.divInvalido ? 'Ganancia + comisión no pueden sumar 95% o más' : (f.cantidad > 1 ? `${fmt(r.unitario)} c/u · ${f.cantidad} unidades` : `${r.gramos ? r.gramos + ' g · ' : ''}${f.horas ? (Math.round(f.horas*10)/10) + ' h de impresión' : ''}`);
+  $('rGan').textContent = fmt(r.ganancia); $('rCom').textContent = fmt(r.comision);
+  $('rCob').textContent = fmt(f.cobrado); $('rSaldo').textContent = fmt(Math.max(0, r.precio - f.cobrado));
+}
+$('cEstado').innerHTML = optsEstado('pendiente'); $('cPago').innerHTML = optsPago('');
+$('cSena').onclick = () => { calcular(); $('cCobrado').value = Math.round(ultimo.r.precio / 2); calcular(); };
+$('cTotal').onclick = () => { calcular(); $('cCobrado').value = Math.round(ultimo.r.precio); calcular(); };
+document.querySelectorAll('#v-calcular input, #v-calcular select').forEach(el => el.addEventListener('input', calcular));
+$('cImpresora').addEventListener('change', calcular);
+
+function limpiar(){
+  editandoId = null;
+  ['cCliente','cPieza','cNotas'].forEach(i => $(i).value = '');
+  ['cHoras','cMin','cTrabajo','cDiseno','cPost','cEmpaque'].forEach(i => $(i).value = 0);
+  $('cCantidad').value = 1;
+  $('cEstado').value = 'pendiente'; $('cEntrega').value = ''; $('cPago').value = ''; $('cCobrado').value = 0;
+  const c = estado.config; $('cMerma').value = c.merma; $('cMargen').value = c.margen; $('cComision').value = c.comision;
+  filRows = [{filId: estado.filamentos[0]?.id || '', gramos: 0}];
+  $('btnGuardar').textContent = 'Guardar presupuesto';
+  renderFilRows(); calcular();
+}
+$('btnLimpiar').onclick = () => { limpiar(); toast('Listo para un presupuesto nuevo'); };
+
+$('btnGuardar').onclick = async () => {
+  calcular(); const {f, r} = ultimo;
+  if (!f.cliente && !f.pieza) { toast('Poné al menos el cliente o la pieza'); return; }
+  if (!r.precio) { toast('Cargá gramos o tiempo para calcular'); return; }
+  const id = editandoId || nuevoUuid();
+  const previo = estado.presupuestos.find(p => p.id === id);
+  const data = {...f, resultado: r, fecha: previo?.fecha || new Date().toISOString()};
+  $('btnGuardar').disabled = true;
+  try {
+    data.clienteId = await asegurarCliente(f.cliente); await guardarDoc('presupuestos', id, data); toast(ACTIVOS.includes(f.estado) ? 'Pedido guardado ✓ (lo ves en Pedidos)' : (editandoId ? 'Presupuesto actualizado' : 'Presupuesto guardado')); editandoId = id; $('btnGuardar').textContent = 'Actualizar presupuesto'; }
+  catch(e){} finally { $('btnGuardar').disabled = false; }
+};
+
+function textoWsp(p){
+  const r = p.resultado;
+  let t = `Hola${p.cliente ? ' ' + p.cliente : ''}! 💜 Te paso el presupuesto de Mora Studio:\n\n`;
+  t += `🖨️ ${p.pieza || 'Impresión 3D'}${p.cantidad > 1 ? ' x' + p.cantidad : ''}\n`;
+  if (p.cantidad > 1) t += `💲 Precio por unidad: ${fmt(r.unitario)}\n`;
+  t += `💲 Total: ${fmt(r.precio)}\n`;
+  if (p.fechaEntrega) t += `📅 Entrega: ${new Date(p.fechaEntrega + 'T12:00:00').toLocaleDateString('es-AR', {weekday: 'long', day: 'numeric', month: 'numeric'})}\n`;
+  if (num(p.cobrado) && saldoDe(p)) t += `✅ Seña recibida: ${fmt(p.cobrado)} · Saldo: ${fmt(saldoDe(p))}\n`;
+  if (p.notas) t += `📝 ${p.notas}\n`;
+  t += `\nCualquier duda me escribís!`;
+  return t;
+}
+function mostrarTexto(t){
+  abrirModal(`<h3>Texto para el cliente</h3><textarea id="txtWsp">${esc(t)}</textarea>
+    <div class="acciones" style="margin-top:12px"><button class="btn" id="copiarWsp" style="flex:1">Copiar</button><button class="btn sec" onclick="cerrarModal()">Cerrar</button></div>`);
+  $('copiarWsp').onclick = async () => {
+    try { await navigator.clipboard.writeText($('txtWsp').value); toast('Copiado ✓'); }
+    catch(e){ $('txtWsp').select(); toast('Mantené apretado y copiá'); }
+  };
+}
+$('btnWsp').onclick = () => { calcular(); mostrarTexto(textoWsp({...ultimo.f, resultado: ultimo.r})); };
+
+// ---------- presupuestos ----------
+let filtro = 'todos';
+$('filtros').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; filtro = b.dataset.f; document.querySelectorAll('#filtros button').forEach(x => x.classList.toggle('activo', x === b)); renderPres(); });
+$('buscar').addEventListener('input', () => renderPres());
+
+function renderPres(){
+  const q = $('buscar').value.toLowerCase().trim();
+  const todos = [...estado.presupuestos].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const lista = todos.filter(p => (filtro === 'todos' || p.estado === filtro || (filtro === 'curso' && ACTIVOS.includes(p.estado))) && (!q || (p.cliente + ' ' + p.pieza).toLowerCase().includes(q)));
+  const acept = todos.filter(p => VENDIDOS.includes(p.estado));
+  const cob = k => fmt(acept.filter(p => p.formaPago === k).reduce((s, p) => s + num(p.cobrado), 0));
+  $('statsPres').innerHTML = todos.length ? `
+    <div class="stat"><small>Vendido (pedidos confirmados)</small><b>${fmt(acept.reduce((s,p)=>s+num(p.resultado?.precio),0))}</b></div>
+    <div class="stat"><small>Ganancia de eso</small><b>${fmt(acept.reduce((s,p)=>s+num(p.resultado?.ganancia),0))}</b></div>
+    <div class="stat"><small>Cobrado MP Mili</small><b>${cob('mp_mili')}</b></div>
+    <div class="stat"><small>Cobrado MP Lucas</small><b>${cob('mp_lucas')}</b></div>
+    <div class="stat"><small>Cobrado efectivo</small><b>${cob('efectivo')}</b></div>
+    <div class="stat alerta"><small>Por cobrar</small><b>${fmt(acept.reduce((s,p)=>s+saldoDe(p),0))}</b></div>` : '';
+  if (!todos.length) { $('listaPres').innerHTML = `<div class="vacio"><b>Todavía no guardaste presupuestos</b>Calculá uno en la pestaña Calcular y tocá "Guardar".</div>`; return; }
+  if (!lista.length) { $('listaPres').innerHTML = `<div class="vacio">No hay presupuestos con ese filtro.</div>`; return; }
+  $('listaPres').innerHTML = lista.map(p => `
+    <div class="item" data-id="${esc(p.id)}" style="cursor:pointer">
+      <div class="info">
+        <div class="t">${esc(p.pieza || 'Sin nombre')}${p.cantidad > 1 ? ' ×' + p.cantidad : ''}</div>
+        <div class="d">${esc(p.cliente || '—')} · ${new Date(p.fecha).toLocaleDateString('es-AR')}${p.creadoPor ? ' · ' + esc(p.creadoPor.split('@')[0]) : ''} ${chipEstado(p.estado)}</div>
+      </div>
+      <div class="m">${fmt(p.resultado?.precio)}</div>
+    </div>`).join('');
+}
+$('listaPres').addEventListener('click', e => { const it = e.target.closest('.item'); if (it) verPres(it.dataset.id); });
+
+function verPres(id){
+  const p = estado.presupuestos.find(x => x.id === id); if (!p) return; const r = p.resultado || {};
+  const L = (a, b) => `<div class="detalle-linea"><span>${a}</span><b>${b}</b></div>`;
+  abrirModal(`<h3>${esc(p.pieza || 'Presupuesto')}</h3>
+    ${L('Cliente', esc(p.cliente || '—') + linkWsp(p))}${p.creadoPor ? L('Cargado por', esc(p.creadoPor)) : ''}${L('Fecha', new Date(p.fecha).toLocaleString('es-AR'))}
+    ${L('Impresora', esc(r.impresora || '—'))}${L('Filamento', esc((r.detalleMat||[]).map(m => m.nombre + ' ' + m.gramos + 'g').join(', ') || '—'))}
+    ${L('Impresión', (Math.round(num(p.horas)*10)/10) + ' h')}
+    ${L('Material', fmt(r.mat))}${L('Luz + desgaste', fmt(num(r.luz)+num(r.desg)))}${L('Mano de obra + diseño', fmt(num(r.mo)+num(r.dis)))}
+    ${L('Extras', fmt(r.ext))}${L('Merma ' + p.merma + '%', fmt(r.merma))}${L('Costo real', fmt(r.costo))}
+    ${L('Ganancia (' + p.margen + '%)', fmt(r.ganancia))}${L('Precio de venta', '<span style="color:var(--violeta-osc);font-size:18px">' + fmt(r.precio) + '</span>')}
+    ${p.cantidad > 1 ? L('Por unidad', fmt(r.unitario)) : ''}${p.notas ? L('Notas', esc(p.notas)) : ''}
+    <div class="seccion-modal">
+      <h4>Pedido y pago</h4>
+      <div class="fila">
+        <div class="campo"><label>Estado</label><select id="mEstado">${optsEstado(p.estado)}</select></div>
+        <div class="campo"><label>Entrega</label><input id="mEntrega" type="date" value="${esc(p.fechaEntrega)}"></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label>Forma de pago</label><select id="mPago">${optsPago(p.formaPago)}</select></div>
+        <div class="campo"><label>Cobrado $</label><input id="mCobrado" type="number" min="0" inputmode="decimal" value="${num(p.cobrado)}">
+          <div class="rapidos"><button class="btn sec chico" type="button" id="mSena">Seña 50%</button><button class="btn sec chico" type="button" id="mTotal">Total</button></div></div>
+      </div>
+      <div class="det" id="mSaldo" style="margin:0 0 10px"></div>
+      <button class="btn" id="mGuardarPed" style="width:100%">Guardar cambios</button>
+    </div>
+    <div class="acciones" style="margin-top:14px">
+      <button class="btn" id="mEditar">Editar</button><button class="btn sec" id="mDup">Duplicar</button>
+      <button class="btn sec" id="mWsp">WhatsApp</button><button class="btn peligro" id="mBorrar">Borrar</button>
+      <button class="btn sec" onclick="cerrarModal()" style="margin-left:auto">Cerrar</button>
+    </div>`);
+  const precio = num(r.precio);
+  const verSaldo = () => { const s = Math.max(0, Math.round(precio - num($('mCobrado').value))); $('mSaldo').innerHTML = s ? `Saldo pendiente: <b style="color:var(--mal)">${fmt(s)}</b>` : '<b style="color:var(--ok)">Pagado completo ✓</b>'; };
+  verSaldo(); $('mCobrado').oninput = verSaldo;
+  $('mSena').onclick = () => { $('mCobrado').value = Math.round(precio / 2); verSaldo(); };
+  $('mTotal').onclick = () => { $('mCobrado').value = Math.round(precio); verSaldo(); };
+  $('mGuardarPed').onclick = async () => {
+    const cambios = {...p, estado: $('mEstado').value, fechaEntrega: $('mEntrega').value, formaPago: $('mPago').value, cobrado: num($('mCobrado').value)};
+    try { await guardarDoc('presupuestos', p.id, cambios); toast('Guardado ✓'); cerrarModal(); } catch(e){}
+  };
+  $('mEditar').onclick = () => { cargarEnCalc(p, true); };
+  $('mDup').onclick = () => { cargarEnCalc(p, false); toast('Copia lista para ajustar'); };
+  $('mWsp').onclick = () => mostrarTexto(textoWsp(p));
+  $('mBorrar').onclick = () => confirmar('¿Borrar este presupuesto?', async () => { await borrarDoc('presupuestos', p.id); cerrarModal(); toast('Borrado'); });
+}
+
+function cargarEnCalc(p, editar){
+  editandoId = editar ? p.id : null;
+  $('cCliente').value = editar ? p.cliente : ''; $('cPieza').value = p.pieza || ''; $('cCantidad').value = p.cantidad || 1;
+  const h = num(p.horas); $('cHoras').value = Math.floor(h); $('cMin').value = Math.round((h - Math.floor(h)) * 60);
+  $('cTrabajo').value = p.trabajoMin || 0; $('cDiseno').value = p.disenoMin || 0; $('cPost').value = p.post || 0; $('cEmpaque').value = p.empaque || 0;
+  $('cMerma').value = p.merma; $('cMargen').value = p.margen; $('cComision').value = p.comision; $('cNotas').value = p.notas || '';
+  $('cEstado').value = editar ? p.estado : 'pendiente'; $('cEntrega').value = editar ? (p.fechaEntrega || '') : ''; $('cPago').value = editar ? (p.formaPago || '') : ''; $('cCobrado').value = editar ? num(p.cobrado) : 0;
+  filRows = (p.filamentos && p.filamentos.length) ? p.filamentos.map(r => ({...r})) : [{filId: '', gramos: 0}];
+  renderImpSelect(); if (p.impresoraId) $('cImpresora').value = p.impresoraId;
+  $('btnGuardar').textContent = editar ? 'Actualizar presupuesto' : 'Guardar presupuesto';
+  renderFilRows(); calcular(); cerrarModal(); irA('calcular');
+}
+
+// ---------- pedidos (cola de producción) ----------
+let filtroPed = 'activos';
+$('filtrosPed').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; filtroPed = b.dataset.f; document.querySelectorAll('#filtrosPed button').forEach(x => x.classList.toggle('activo', x === b)); renderPed(); });
+$('pedNuevo').onclick = () => { limpiar(); $('cEstado').value = 'aceptado'; irA('calcular'); };
+const SIGUIENTE = {aceptado: ['produccion', '▶ Empezar a imprimir'], produccion: ['listo', '✓ Terminado'], listo: ['entregado', '📦 Entregado']};
+
+function renderPed(){
+  const activos = estado.presupuestos.filter(p => ACTIVOS.includes(p.estado));
+  const hoy = hoyISO();
+  const orden = (a, b) => (a.fechaEntrega || '9999') .localeCompare(b.fechaEntrega || '9999') || String(a.fecha).localeCompare(String(b.fecha));
+  const aFab = activos.filter(p => p.estado !== 'listo');
+  const horas = aFab.reduce((s, p) => s + num(p.horas), 0);
+  const tarde = activos.filter(p => p.fechaEntrega && p.fechaEntrega < hoy).length;
+  $('statsPed').innerHTML = `
+    <div class="stat"><small>Por fabricar</small><b>${aFab.length}</b></div>
+    <div class="stat"><small>Horas de impresión</small><b>${Math.round(horas * 10) / 10} h</b></div>
+    <div class="stat ${tarde ? 'alerta' : ''}"><small>Atrasados</small><b>${tarde}</b></div>
+    <div class="stat alerta"><small>Por cobrar</small><b>${fmt(activos.reduce((s, p) => s + saldoDe(p), 0))}</b></div>`;
+  // filamento necesario
+  const mat = {};
+  aFab.forEach(p => (p.filamentos || []).forEach(r => { const g = num(r.gramos); if (!g) return; mat[r.filId || '?'] = (mat[r.filId || '?'] || 0) + g; }));
+  const filas = Object.entries(mat).sort((a, b) => b[1] - a[1]).map(([id, g]) => {
+    const f = estado.filamentos.find(x => x.id === id);
+    const peso = num(f?.peso) || 1000;
+    return `<div><span>${f ? esc(f.nombre) + (f.color ? ' · ' + esc(f.color) : '') : 'Sin elegir'}</span><b>${Math.round(g)} g <span class="ayuda">(${Math.round(g / peso * 100) / 100} rollo${g / peso >= 2 ? 's' : ''})</span></b></div>`;
+  }).join('');
+  $('matPed').innerHTML = `<h2 style="margin-bottom:8px">🧵 Filamento que necesitás</h2>${filas ? `<div class="mat-lista">${filas}</div>` : '<div class="det" style="margin:0">Nada pendiente por fabricar.</div>'}`;
+  let lista = activos;
+  if (filtroPed === 'debe') lista = activos.filter(p => saldoDe(p) > 0);
+  else if (filtroPed !== 'activos') lista = activos.filter(p => p.estado === filtroPed);
+  lista.sort(orden);
+  if (!activos.length) { $('listaPed').innerHTML = `<div class="vacio"><b>No hay pedidos en curso 🎉</b>Cuando un cliente confirma, pasá su presupuesto a "A fabricar" y aparece acá.</div>`; return; }
+  if (!lista.length) { $('listaPed').innerHTML = `<div class="vacio">No hay pedidos con ese filtro.</div>`; return; }
+  $('listaPed').innerHTML = lista.map(p => {
+    const r = p.resultado || {};
+    let entrega = '<span class="ayuda">Sin fecha de entrega</span>';
+    if (p.fechaEntrega) {
+      const d = diasHasta(p.fechaEntrega);
+      entrega = d < 0 ? `<span class="tarde-txt">📅 ${fechaCorta(p.fechaEntrega)} · atrasado ${-d} día${d === -1 ? '' : 's'}</span>`
+        : d === 0 ? `<span class="tarde-txt">📅 Hoy</span>` : `📅 ${fechaCorta(p.fechaEntrega)} · en ${d} día${d === 1 ? '' : 's'}`;
+    }
+    const sig = SIGUIENTE[p.estado];
+    const mats = (r.detalleMat || []).map(m => esc(m.nombre) + ' ' + m.gramos + 'g').join(', ');
+    return `<div class="pedido ${p.fechaEntrega && p.fechaEntrega < hoy ? 'tarde' : ''} ${p.estado === 'listo' ? 'listo' : ''}" data-id="${esc(p.id)}">
+      <div class="ped-top"><b>${esc(p.pieza || 'Sin nombre')}${p.cantidad > 1 ? ' ×' + p.cantidad : ''}</b>${chipEstado(p.estado)}</div>
+      <div class="d">👤 ${esc(p.cliente || '—')} · ${entrega}</div>
+      <div class="d">🧵 ${mats || '—'} · ⏱ ${Math.round(num(p.horas) * 10) / 10} h${r.impresora ? ' · 🖨 ' + esc(r.impresora) : ''}</div>
+      ${p.notas ? `<div class="d">📝 ${esc(p.notas)}</div>` : ''}
+      <div class="ped-bottom">${chipPago(p)}${sig ? `<button class="btn chico" data-avanzar="${esc(p.id)}">${sig[1]}</button>` : ''}</div>
+    </div>`;
+  }).join('');
+}
+$('listaPed').addEventListener('click', async e => {
+  const b = e.target.closest('[data-avanzar]');
+  if (b) {
+    e.stopPropagation();
+    const p = estado.presupuestos.find(x => x.id === b.dataset.avanzar); if (!p) return;
+    const nuevo = SIGUIENTE[p.estado][0];
+    if (nuevo === 'entregado' && saldoDe(p) > 0) {
+      abrirModal(`<h3>Queda un saldo de ${fmt(saldoDe(p))}</h3><div class="det">¿Lo cobraste al entregar?</div>
+        <div class="fila"><div class="campo"><label>Forma de pago</label><select id="ePago">${optsPago(p.formaPago)}</select></div><div class="campo"></div></div>
+        <div class="acciones"><button class="btn" id="eCobrado" style="flex:1">Sí, cobrado y entregado</button><button class="btn sec" id="eSinCobrar">Entregar sin cobrar</button><button class="btn sec" onclick="cerrarModal()">Cancelar</button></div>`);
+      $('eCobrado').onclick = async () => { await guardarDoc('presupuestos', p.id, {...p, estado: 'entregado', cobrado: Math.round(num(p.resultado?.precio)), formaPago: $('ePago').value || p.formaPago}).catch(()=>{}); cerrarModal(); toast('Entregado y cobrado ✓'); };
+      $('eSinCobrar').onclick = async () => { await guardarDoc('presupuestos', p.id, {...p, estado: 'entregado'}).catch(()=>{}); cerrarModal(); toast('Entregado (queda saldo en Presupuestos)'); };
+      return;
+    }
+    b.disabled = true;
+    await guardarDoc('presupuestos', p.id, {...p, estado: nuevo}).catch(()=>{});
+    toast(ESTADOS[nuevo] + ' ✓');
+    return;
+  }
+  const it = e.target.closest('.pedido'); if (it) verPres(it.dataset.id);
+});
+
+// ---------- clientes ----------
+const normal = s => String(s || '').trim().toLowerCase();
+function clienteDe(p){ return estado.clientes.find(c => c.id === p.clienteId) || estado.clientes.find(c => normal(c.nombre) === normal(p.cliente)); }
+function pedidosDe(c){ return estado.presupuestos.filter(p => p.clienteId === c.id || (!p.clienteId && normal(p.cliente) === normal(c.nombre))); }
+function numeroWsp(t){ let d = String(t || '').replace(/\D/g, ''); if (!d) return ''; if (d.startsWith('0')) d = d.slice(1); if (d.length === 10) d = '549' + d; else if (d.startsWith('54') && !d.startsWith('549')) d = '549' + d.slice(2); return d; }
+function linkWsp(p){ const c = clienteDe(p); const n = c && numeroWsp(c.whatsapp); return n ? ` · <a class="wsp-link" href="https://wa.me/${n}" target="_blank" rel="noopener">WhatsApp</a>` : ''; }
+async function asegurarCliente(nombre){
+  if (!nombre) return null;
+  const c = estado.clientes.find(x => normal(x.nombre) === normal(nombre));
+  if (c) return c.id;
+  const id = nuevoUuid();
+  await guardarDoc('clientes', id, {nombre: nombre.trim(), whatsapp: '', instagram: '', notas: ''});
+  return id;
+}
+function renderDatalist(){ $('dlClientes').innerHTML = estado.clientes.map(c => `<option value="${esc(c.nombre)}">`).join(''); }
+$('buscarCli').addEventListener('input', () => renderClientes());
+$('addCliente').onclick = () => editarCliente(null);
+function renderClientes(){
+  const q = normal($('buscarCli').value);
+  const lista = estado.clientes.filter(c => !q || normal(c.nombre + ' ' + c.instagram + ' ' + c.whatsapp).includes(q)).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  if (!estado.clientes.length) { $('listaCli').innerHTML = `<div class="vacio"><b>Todavía no hay clientes</b>Se agregan solos cuando guardás un presupuesto, o cargalos con "+ Nuevo cliente".</div>`; return; }
+  if (!lista.length) { $('listaCli').innerHTML = `<div class="vacio">No se encontró ese cliente.</div>`; return; }
+  $('listaCli').innerHTML = lista.map(c => {
+    const ps = pedidosDe(c), conf = ps.filter(p => VENDIDOS.includes(p.estado));
+    const total = conf.reduce((s, p) => s + num(p.resultado?.precio), 0), debe = conf.reduce((s, p) => s + saldoDe(p), 0);
+    const curso = ps.filter(p => ACTIVOS.includes(p.estado)).length;
+    return `<div class="item" data-id="${esc(c.id)}" style="cursor:pointer"><div class="info">
+      <div class="t">${esc(c.nombre)}</div>
+      <div class="d">${[c.instagram && esc(c.instagram), c.whatsapp && '📱 ' + esc(c.whatsapp)].filter(Boolean).join(' · ') || 'Sin contacto'} · ${conf.length} pedido${conf.length === 1 ? '' : 's'}${curso ? ` · <b style="color:var(--violeta-osc)">${curso} en curso</b>` : ''}${debe ? ` <span class="chip debe">Debe ${fmt(debe)}</span>` : ''}</div>
+    </div><div class="m">${fmt(total)}</div></div>`;
+  }).join('');
+}
+$('listaCli').addEventListener('click', e => { const it = e.target.closest('.item'); if (it) editarCliente(estado.clientes.find(c => c.id === it.dataset.id)); });
+function editarCliente(c){
+  const nuevo = !c; c = c || {nombre: '', whatsapp: '', instagram: '', notas: ''};
+  const ps = nuevo ? [] : pedidosDe(c).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const n = numeroWsp(c.whatsapp);
+  abrirModal(`<h3>${nuevo ? 'Nuevo cliente' : esc(c.nombre)}</h3>
+    <div class="fila una"><div class="campo"><label>Nombre</label><input id="clNom" value="${esc(c.nombre)}"></div></div>
+    <div class="fila"><div class="campo"><label>WhatsApp</label><input id="clWsp" type="tel" value="${esc(c.whatsapp)}" placeholder="11 2345 6789"></div>
+    <div class="campo"><label>Instagram</label><input id="clIg" value="${esc(c.instagram)}" placeholder="@usuario"></div></div>
+    <div class="fila una"><div class="campo"><label>Notas</label><input id="clNotas" value="${esc(c.notas)}" placeholder="Dirección, preferencias…"></div></div>
+    <div class="acciones"><button class="btn" id="clOk" style="flex:1">Guardar</button>${n ? `<a class="btn sec" href="https://wa.me/${n}" target="_blank" rel="noopener" style="text-decoration:none">WhatsApp</a>` : ''}${!nuevo ? '<button class="btn sec" id="clPres">+ Presupuesto</button><button class="btn peligro" id="clDel">Borrar</button>' : ''}<button class="btn sec" onclick="cerrarModal()">Cerrar</button></div>
+    ${ps.length ? `<div class="seccion-modal"><h4>Pedidos (${ps.length})</h4>${ps.map(p => `<div class="detalle-linea" data-ver="${esc(p.id)}" style="cursor:pointer"><span>${esc(p.pieza || 'Sin nombre')} · ${new Date(p.fecha).toLocaleDateString('es-AR')} ${chipEstado(p.estado)}</span><b>${fmt(p.resultado?.precio)}</b></div>`).join('')}</div>` : ''}`);
+  $('clOk').onclick = async () => {
+    const d = {nombre: $('clNom').value.trim(), whatsapp: $('clWsp').value.trim(), instagram: $('clIg').value.trim(), notas: $('clNotas').value.trim()};
+    if (!d.nombre) { toast('Poné un nombre'); return; }
+    await guardarDoc('clientes', c.id || nuevoUuid(), d).then(() => { cerrarModal(); toast('Cliente guardado'); }).catch(()=>{});
+  };
+  if (!nuevo) {
+    $('clPres').onclick = () => { limpiar(); $('cCliente').value = c.nombre; cerrarModal(); irA('calcular'); };
+    $('clDel').onclick = () => confirmar('¿Borrar este cliente? Sus presupuestos no se borran.', async () => { await borrarDoc('clientes', c.id); cerrarModal(); });
+    document.querySelectorAll('[data-ver]').forEach(el => el.onclick = () => verPres(el.dataset.ver));
+  }
+}
+
+// exportar CSV (abre en Excel)
+$('btnCsv').style.display = '';
+$('btnCsv').onclick = () => {
+  const cols = ['Fecha','Cliente','Pieza','Unidades','Gramos','Horas','Costo real','Precio','Precio unidad','Ganancia','Estado','Entrega','Forma de pago','Cobrado','Saldo','Cargado por','Notas'];
+  const filas = estado.presupuestos.map(p => { const r = p.resultado || {}; return [new Date(p.fecha).toLocaleDateString('es-AR'), p.cliente, p.pieza, p.cantidad, r.gramos, (Math.round(num(p.horas)*100)/100), Math.round(num(r.costo)), Math.round(num(r.precio)), Math.round(num(r.unitario)), Math.round(num(r.ganancia)), ESTADOS[p.estado] || p.estado, p.fechaEntrega ? new Date(p.fechaEntrega + 'T12:00:00').toLocaleDateString('es-AR') : '', PAGOS[p.formaPago] || '', Math.round(num(p.cobrado)), saldoDe(p), p.creadoPor, p.notas]; });
+  const csv = '﻿' + [cols, ...filas].map(f => f.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  const a = document.createElement('a'); a.href = url; a.download = 'presupuestos-mora-studio.csv'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+};
+
+// ---------- filamentos ----------
+function renderFil(){
+  if (!estado.filamentos.length) { $('listaFil').innerHTML = `<div class="vacio"><b>Cargá tu primer filamento</b>Con el precio del rollo calculo el costo por gramo.</div>`; return; }
+  $('listaFil').innerHTML = estado.filamentos.map(f => {
+    const pg = num(f.precio) / (num(f.peso) || 1000);
+    return `<div class="item" data-id="${esc(f.id)}" style="cursor:pointer"><div class="info"><div class="t">${esc(f.nombre)}${f.color ? ' · ' + esc(f.color) : ''}</div><div class="d">${fmt(f.precio)} el rollo de ${num(f.peso) || 1000} g</div></div><div class="m">${fmt(pg, 2)}/g</div></div>`;
+  }).join('');
+}
+$('listaFil').addEventListener('click', e => { const it = e.target.closest('.item'); if (it) editarFil(estado.filamentos.find(f => f.id === it.dataset.id)); });
+$('addFilamento').onclick = () => editarFil(null);
+function editarFil(f){
+  f = f || {nombre: '', color: '', precio: '', peso: 1000};
+  abrirModal(`<h3>${f.id ? 'Editar' : 'Nuevo'} filamento</h3>
+    <div class="fila"><div class="campo"><label>Tipo / marca</label><input id="fNom" value="${esc(f.nombre)}" placeholder="Ej: PLA Grilon3"></div>
+    <div class="campo"><label>Color</label><input id="fCol" value="${esc(f.color)}" placeholder="Ej: Violeta"></div></div>
+    <div class="fila"><div class="campo"><label>Precio del rollo $</label><input id="fPre" type="number" inputmode="decimal" value="${esc(f.precio)}"></div>
+    <div class="campo"><label>Gramos del rollo</label><input id="fPes" type="number" inputmode="numeric" value="${esc(f.peso)}"></div></div>
+    <div class="acciones"><button class="btn" id="fOk" style="flex:1">Guardar</button>${f.id ? '<button class="btn peligro" id="fDel">Borrar</button>' : ''}<button class="btn sec" onclick="cerrarModal()">Cancelar</button></div>`);
+  $('fOk').onclick = async () => {
+    const d = {nombre: $('fNom').value.trim(), color: $('fCol').value.trim(), precio: num($('fPre').value), peso: num($('fPes').value) || 1000};
+    if (!d.nombre || !d.precio) { toast('Completá tipo y precio'); return; }
+    await guardarDoc('filamentos', f.id || nuevoUuid(), d).then(() => { cerrarModal(); toast('Filamento guardado'); }).catch(()=>{});
+  };
+  if (f.id) $('fDel').onclick = () => confirmar('¿Borrar este filamento?', async () => { await borrarDoc('filamentos', f.id); cerrarModal(); });
+}
+
+// ---------- impresoras ----------
+function renderImp(){
+  if (!estado.impresoras.length) { $('listaImp').innerHTML = `<div class="vacio"><b>Cargá tu impresora</b>Con el consumo y lo que te costó calculo luz y desgaste por hora.</div>`; return; }
+  const kwh = num(estado.config.kwh);
+  $('listaImp').innerHTML = estado.impresoras.map(p => {
+    const h = num(p.watts) / 1000 * kwh + (num(p.vida) ? num(p.precio) / num(p.vida) : 0) + num(p.mant);
+    return `<div class="item" data-id="${esc(p.id)}" style="cursor:pointer"><div class="info"><div class="t">${esc(p.nombre)}</div><div class="d">${num(p.watts)} W · vida útil ${num(p.vida)} h</div></div><div class="m">${fmt(h)}/h</div></div>`;
+  }).join('');
+}
+$('listaImp').addEventListener('click', e => { const it = e.target.closest('.item'); if (it) editarImp(estado.impresoras.find(p => p.id === it.dataset.id)); });
+$('addImpresora').onclick = () => editarImp(null);
+function editarImp(p){
+  p = p || {nombre: '', watts: 120, precio: '', vida: 5000, mant: 0};
+  abrirModal(`<h3>${p.id ? 'Editar' : 'Nueva'} impresora</h3>
+    <div class="fila una"><div class="campo"><label>Nombre / modelo</label><input id="iNom" value="${esc(p.nombre)}" placeholder="Ej: Ender 3 V3 SE"></div></div>
+    <div class="fila"><div class="campo"><label>Consumo promedio (W)</label><input id="iW" type="number" inputmode="numeric" value="${esc(p.watts)}"></div>
+    <div class="campo"><label>Lo que te costó $</label><input id="iPre" type="number" inputmode="decimal" value="${esc(p.precio)}"></div></div>
+    <div class="fila"><div class="campo"><label>Vida útil (horas)</label><input id="iVida" type="number" inputmode="numeric" value="${esc(p.vida)}"></div>
+    <div class="campo"><label>Mantenimiento $/hora <span class="ayuda">picos, correas, cama</span></label><input id="iMant" type="number" inputmode="decimal" value="${esc(p.mant)}"></div></div>
+    <div class="det">Una FDM típica consume 100–150 W promedio imprimiendo PLA. Vida útil: un número razonable es 3.000–5.000 h.</div>
+    <div class="acciones"><button class="btn" id="iOk" style="flex:1">Guardar</button>${p.id ? '<button class="btn peligro" id="iDel">Borrar</button>' : ''}<button class="btn sec" onclick="cerrarModal()">Cancelar</button></div>`);
+  $('iOk').onclick = async () => {
+    const d = {nombre: $('iNom').value.trim(), watts: num($('iW').value), precio: num($('iPre').value), vida: num($('iVida').value), mant: num($('iMant').value)};
+    if (!d.nombre) { toast('Poné un nombre'); return; }
+    await guardarDoc('impresoras', p.id || nuevoUuid(), d).then(() => { cerrarModal(); toast('Impresora guardada'); }).catch(()=>{});
+  };
+  if (p.id) $('iDel').onclick = () => confirmar('¿Borrar esta impresora?', async () => { await borrarDoc('impresoras', p.id); cerrarModal(); });
+}
+
+// ---------- ajustes ----------
+function cargarAjustes(){
+  const c = estado.config;
+  $('aKwh').value = c.kwh || ''; $('aHora').value = c.hora || ''; $('aDiseno').value = c.diseno || '';
+  $('aMerma').value = c.merma; $('aMargen').value = c.margen; $('aComision').value = c.comision; $('aRedondeo').value = String(c.redondeo || 1);
+}
+$('guardarAjustes').onclick = async () => {
+  const c = {kwh: num($('aKwh').value), hora: num($('aHora').value), diseno: num($('aDiseno').value), merma: num($('aMerma').value), margen: num($('aMargen').value), comision: num($('aComision').value), redondeo: num($('aRedondeo').value) || 1};
+  if (c.margen + c.comision >= 95) { toast('Ganancia + comisión tiene que ser menos de 95%'); return; }
+  await guardarConfig(c).then(() => { toast('Ajustes guardados'); $('cMerma').value = c.merma; $('cMargen').value = c.margen; $('cComision').value = c.comision; calcular(); }).catch(()=>{});
+};
+
+// ---------- aviso de configuración ----------
+function renderAviso(){
+  const falta = [];
+  if (!estado.filamentos.length) falta.push('<a href="#" data-ir="filamentos">un filamento</a>');
+  if (!estado.impresoras.length) falta.push('<a href="#" data-ir="impresoras">tu impresora</a>');
+  if (!num(estado.config.kwh) || !num(estado.config.hora)) falta.push('<a href="#" data-ir="ajustes">precio de la luz y tu hora</a>');
+  let h = falta.length ? `<div class="aviso">Para empezar cargá ${falta.join(', ')}. Se guarda una sola vez y queda para siempre.</div>` : '';
+  if (modoLocal) h += `<div class="aviso warn">Estás usando la versión sin conexión: los datos quedan solo en este dispositivo.</div>`;
+  $('avisoSetup').innerHTML = h;
+}
+$('avisoSetup').addEventListener('click', e => { const a = e.target.closest('[data-ir]'); if (a) { e.preventDefault(); irA(a.dataset.ir); } });
+
+// ---------- modal ----------
+function abrirModal(html){ $('modalCont').innerHTML = html; $('modal').classList.add('abierto'); }
+function cerrarModal(){ $('modal').classList.remove('abierto'); }
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') cerrarModal(); });
+function confirmar(msg, si){
+  abrirModal(`<h3>${esc(msg)}</h3><div class="acciones"><button class="btn peligro" id="cfSi" style="flex:1">Sí, borrar</button><button class="btn sec" onclick="cerrarModal()">Cancelar</button></div>`);
+  $('cfSi').onclick = si;
+}
+
+// ---------- render general ----------
+function render(){
+  const filPrev = filRows.map(r => r.filId);
+  renderImpSelect(); renderFilRows(); renderFil(); renderImp(); renderPres(); renderPed(); renderClientes(); renderDatalist(); renderAviso();
+  if (filRows.length === 1 && !filRows[0].filId && estado.filamentos.length) { filRows[0].filId = estado.filamentos[0].id; renderFilRows(); }
+  calcular();
+}
+
+render();
+iniciarDatos();
+</script>
+</body>
+</html>
