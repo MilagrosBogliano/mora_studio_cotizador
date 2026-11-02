@@ -119,6 +119,16 @@ input:focus,select:focus{border-color:var(--violeta);box-shadow:0 0 0 3px var(--
 .login-card{background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:360px;text-align:left}
 .login-card h2{font-family:'Luckiest Guy',cursive;font-weight:400;text-align:center;margin:0 0 16px;font-size:26px}
 .login-msg{color:#FFB3C2;font-weight:700;margin-top:14px;text-align:center;max-width:360px}
+.combo{position:relative}
+.sugerencias{display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1.5px solid var(--violeta);border-radius:12px;box-shadow:0 10px 30px rgba(20,18,24,.18);z-index:30;max-height:300px;overflow:auto}
+.sugerencias.abierta{display:block}
+.sug{display:flex;justify-content:space-between;gap:10px;padding:11px 12px;border-bottom:1px solid var(--borde);cursor:pointer;font-weight:700}
+.sug:last-child{border-bottom:0}
+.sug:hover,.sug.sel{background:var(--lila)}
+.sug small{color:var(--gris);font-weight:600;display:block;font-size:12px}
+.sug b{color:var(--violeta-osc);white-space:nowrap}
+.sug.pers{color:var(--gris);font-weight:700}
+#cProdTag{margin-left:6px;vertical-align:1px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(120px);background:var(--negro);color:#fff;padding:11px 18px;border-radius:12px;font-weight:700;transition:transform .25s;z-index:60;max-width:90vw;text-align:center}
 .toast.ver{transform:translateX(-50%) translateY(0)}
 .buscar{margin-bottom:12px}
@@ -158,15 +168,15 @@ textarea{width:100%;font:600 14px Nunito,sans-serif;padding:10px;border:1.5px so
     <div class="grid">
       <div class="card">
         <h2><span class="num">1</span>Pedido</h2>
-        <div class="fila una"><div class="campo"><label>Producto del catálogo</label>
-          <select id="cProducto"><option value="">— Pieza personalizada —</option></select>
-          <div class="det" id="cProdAyuda" style="margin:4px 0 0;display:none">Elegiste un producto: gramos, horas, mano de obra y extras se multiplican solos por las unidades.</div></div></div>
+        <div class="fila una"><div class="campo combo"><label>Producto <span id="cProdTag" class="chip gris">✏️ Artículo personalizado</span></label>
+          <input id="cPieza" placeholder="Buscá en tu catálogo o escribí un artículo nuevo" autocomplete="off">
+          <div id="sugProd" class="sugerencias"></div>
+          <div class="det" id="cProdAyuda" style="margin:4px 0 0;display:none">Del catálogo: gramos, horas, mano de obra y extras se multiplican solos por las unidades.</div></div></div>
         <div class="fila">
           <div class="campo"><label>Cliente</label><input id="cCliente" placeholder="Nombre o @usuario" list="dlClientes" autocomplete="off"><datalist id="dlClientes"></datalist></div>
-          <div class="campo"><label>Pieza</label><input id="cPieza" placeholder="Ej: llavero corazón"></div>
-        </div>
-        <div class="fila">
           <div class="campo"><label>Unidades</label><input id="cCantidad" type="number" min="1" value="1" inputmode="numeric"></div>
+        </div>
+        <div class="fila una">
           <div class="campo"><label>Impresora</label><select id="cImpresora"></select></div>
         </div>
         <div class="det">Cargá gramos y tiempo del pedido completo (todas las unidades). Te muestro el precio por unidad abajo.</div>
@@ -598,7 +608,7 @@ function limpiar(){
   editandoId = null;
   ['cCliente','cPieza','cNotas'].forEach(i => $(i).value = '');
   ['cHoras','cMin','cTrabajo','cDiseno','cPost','cEmpaque'].forEach(i => $(i).value = 0);
-  $('cCantidad').value = 1; $('cProducto').value = ''; prodBase = null; editandoProdId = null; $('cProdAyuda').style.display = 'none';
+  $('cCantidad').value = 1; modoProducto(null); editandoProdId = null;
   $('cEstado').value = 'pendiente'; $('cEntrega').value = ''; $('cPago').value = ''; $('cCobrado').value = 0;
   const c = estado.config; $('cMerma').value = c.merma; $('cMargen').value = c.margen; $('cComision').value = c.comision;
   filRows = [{filId: estado.filamentos[0]?.id || '', gramos: 0}];
@@ -720,7 +730,7 @@ function verPres(id){
 
 function cargarEnCalc(p, editar){
   editandoId = editar ? p.id : null;
-  prodBase = null; editandoProdId = null; $('cProducto').value = ''; $('cProdAyuda').style.display = 'none';
+  modoProducto(null); editandoProdId = null;
   $('cCliente').value = editar ? p.cliente : ''; $('cPieza').value = p.pieza || ''; $('cCantidad').value = p.cantidad || 1;
   const h = num(p.horas); $('cHoras').value = Math.floor(h); $('cMin').value = Math.round((h - Math.floor(h)) * 60);
   $('cTrabajo').value = p.trabajoMin || 0; $('cDiseno').value = p.disenoMin || 0; $('cPost').value = p.post || 0; $('cEmpaque').value = p.empaque || 0;
@@ -736,11 +746,51 @@ function cargarEnCalc(p, editar){
 let prodBase = null, editandoProdId = null;
 const r2 = n => Math.round(n * 100) / 100;
 const durac = h => { const m = Math.round(h * 60); if (m < 60) return m + ' min'; const hh = Math.floor(m / 60), mm = m % 60; return hh + ' h' + (mm ? ' ' + mm + ' min' : ''); };
-function renderProdSelect(){
-  const sel = $('cProducto'), v = sel.value;
-  sel.innerHTML = '<option value="">— Pieza personalizada —</option>' + [...estado.productos].sort((a, b) => a.nombre.localeCompare(b.nombre)).map(p => `<option value="${esc(p.id)}">${esc(p.nombre)}</option>`).join('');
-  if (v && estado.productos.some(p => p.id === v)) sel.value = v;
+function renderProdSelect(){ if ($('sugProd').classList.contains('abierta')) mostrarSug(); }
+function modoProducto(p){
+  prodBase = p;
+  $('cProdTag').textContent = p ? '📦 Del catálogo' : '✏️ Artículo personalizado';
+  $('cProdTag').className = 'chip ' + (p ? 'entregado' : 'gris');
+  $('cProdAyuda').style.display = p ? '' : 'none';
 }
+const sinTildes = t => normal(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+let sugItems = [], sugSel = -1;
+function mostrarSug(){
+  const q = sinTildes($('cPieza').value);
+  const prods = [...estado.productos].filter(p => !q || sinTildes(p.nombre + ' ' + p.categoria).includes(q))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre)).slice(0, 8);
+  const exacto = estado.productos.some(p => sinTildes(p.nombre) === q);
+  sugItems = [{tipo: 'pers'}, ...prods.map(p => ({tipo: 'prod', p}))];
+  if (!sugItems.length) { cerrarSug(); return; }
+  sugSel = -1;
+  $('sugProd').innerHTML = sugItems.map((it, i) => it.tipo === 'prod'
+    ? `<div class="sug" data-i="${i}"><span>${esc(it.p.nombre)}<small>${esc(it.p.categoria || 'Catálogo')} · ${durac(it.p.horas)}</small></span><b>${fmt(precioUnit(it.p).precio)}</b></div>`
+    : `<div class="sug pers" data-i="${i}"><span>✏️ Artículo personalizado${$('cPieza').value.trim() && !exacto ? ': "' + esc($('cPieza').value.trim()) + '"' : ''}<small>Algo que no está en el catálogo: cargás gramos y tiempo a mano</small></span></div>`).join('');
+  $('sugProd').classList.add('abierta');
+}
+function cerrarSug(){ $('sugProd').classList.remove('abierta'); sugSel = -1; }
+function elegirSug(i){
+  const it = sugItems[i]; if (!it) return;
+  if (it.tipo === 'prod') { usarProducto(it.p.id); toast('Producto cargado ✓'); }
+  else { const eraProd = prodBase; modoProducto(null); if (eraProd) $('cPieza').value = ''; cerrarSug(); calcular(); setTimeout(() => $('cPieza').focus(), 50); return; }
+  cerrarSug(); calcular();
+}
+$('cPieza').addEventListener('focus', mostrarSug);
+$('cPieza').addEventListener('input', () => {
+  // si cambia el nombre de un producto cargado, pasa a personalizado (conserva los valores)
+  if (prodBase && sinTildes($('cPieza').value) !== sinTildes(prodBase.nombre)) modoProducto(null);
+  mostrarSug();
+});
+$('cPieza').addEventListener('keydown', e => {
+  if (!$('sugProd').classList.contains('abierta')) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); sugSel = (sugSel + (e.key === 'ArrowDown' ? 1 : -1) + sugItems.length) % sugItems.length;
+    document.querySelectorAll('#sugProd .sug').forEach((el, i) => el.classList.toggle('sel', i === sugSel));
+  } else if (e.key === 'Enter') { e.preventDefault(); elegirSug(sugSel >= 0 ? sugSel : 0); }
+  else if (e.key === 'Escape') cerrarSug();
+});
+$('sugProd').addEventListener('pointerdown', e => { const el = e.target.closest('.sug'); if (el) { e.preventDefault(); elegirSug(+el.dataset.i); } });
+$('cPieza').addEventListener('blur', () => setTimeout(cerrarSug, 150));
 // aplica la receta de 1 unidad × unidades al formulario
 function aplicarProducto(){
   if (!prodBase) return;
@@ -756,10 +806,9 @@ function aplicarProducto(){
 }
 function usarProducto(id){
   const p = estado.productos.find(x => x.id === id); if (!p) return;
-  prodBase = {...p}; $('cProducto').value = id; $('cProdAyuda').style.display = '';
+  modoProducto({...p});
   aplicarProducto();
 }
-$('cProducto').addEventListener('change', e => { const id = e.target.value; if (id) usarProducto(id); else { prodBase = null; $('cProdAyuda').style.display = 'none'; } });
 $('cCantidad').addEventListener('input', () => { if (prodBase) aplicarProducto(); });
 
 // guarda lo que hay en la calculadora como receta de 1 unidad
@@ -779,7 +828,7 @@ $('btnProd').onclick = () => {
   });
   const guardar = async id => {
     const d = datos(); if (!d.nombre) { toast('Poné un nombre'); return; }
-    await guardarDoc('productos', id, d).then(() => { cerrarModal(); toast('Producto guardado ✓'); editandoProdId = id; prodBase = {...d, id}; $('cProducto').value = id; $('cProdAyuda').style.display = ''; }).catch(()=>{});
+    await guardarDoc('productos', id, d).then(() => { cerrarModal(); toast('Producto guardado ✓'); editandoProdId = id; modoProducto({...d, id}); }).catch(()=>{});
   };
   $('pOk').onclick = () => guardar(editando ? editando.id : nuevoUuid());
   if (editando) $('pNuevo').onclick = () => guardar(nuevoUuid());
@@ -791,12 +840,59 @@ function precioUnit(p){
   return computar(f);
 }
 $('buscarProd').addEventListener('input', () => renderProductos());
-$('addProducto').onclick = () => { limpiar(); irA('calcular'); toast('Cargá los datos de 1 unidad y tocá "Guardar como producto"'); };
+$('addProducto').onclick = () => editarProducto(null);
+function editarProducto(p){
+  const nuevo = !p;
+  p = p || {nombre: '', categoria: '', impresoraId: estado.impresoras[0]?.id || '', filamentos: [{filId: estado.filamentos[0]?.id || '', gramos: ''}], horas: 0, trabajoMin: 0, disenoMin: 0, post: 0, empaque: 0, notas: ''};
+  let filas = (p.filamentos && p.filamentos.length ? p.filamentos : [{filId: '', gramos: ''}]).map(r => ({...r}));
+  const optsFil = sel => '<option value="">Elegí filamento…</option>' + estado.filamentos.map(f => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.nombre)}${f.color ? ' · ' + esc(f.color) : ''}</option>`).join('');
+  const optsImp = estado.impresoras.map(i => `<option value="${esc(i.id)}" ${i.id === p.impresoraId ? 'selected' : ''}>${esc(i.nombre)}</option>`).join('') || '<option value="">Sin impresoras cargadas</option>';
+  const h = num(p.horas);
+  abrirModal(`<h3>${nuevo ? 'Nuevo producto' : 'Editar producto'}</h3>
+    <div class="fila"><div class="campo"><label>Nombre</label><input id="epNom" value="${esc(p.nombre)}" placeholder="Ej: Llavero corazón"></div>
+    <div class="campo"><label>Categoría</label><input id="epCat" value="${esc(p.categoria)}" placeholder="Ej: Llaveros" list="dlCat2"><datalist id="dlCat2">${[...new Set(estado.productos.map(x => x.categoria).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist></div></div>
+    <div class="det">Todo para <b>1 unidad</b>.</div>
+    <label>Filamento y gramos</label><div id="epFil"></div>
+    <button class="btn sec chico" type="button" id="epAddFil" style="margin-bottom:12px">+ Otro filamento/color</button>
+    <div class="fila"><div class="campo"><label>Impresión (horas)</label><input id="epH" type="number" min="0" inputmode="numeric" value="${Math.floor(h)}"></div>
+    <div class="campo"><label>+ minutos</label><input id="epM" type="number" min="0" inputmode="numeric" value="${Math.round((h - Math.floor(h)) * 60)}"></div></div>
+    <div class="fila"><div class="campo"><label>Tu trabajo (min)</label><input id="epT" type="number" min="0" inputmode="numeric" value="${Math.round(num(p.trabajoMin))}"></div>
+    <div class="campo"><label>Diseño (min) <span class="ayuda">una vez</span></label><input id="epD" type="number" min="0" inputmode="numeric" value="${Math.round(num(p.disenoMin))}"></div></div>
+    <div class="fila"><div class="campo"><label>Postprocesado $</label><input id="epP" type="number" min="0" inputmode="decimal" value="${num(p.post)}"></div>
+    <div class="campo"><label>Empaque $</label><input id="epE" type="number" min="0" inputmode="decimal" value="${num(p.empaque)}"></div></div>
+    <div class="fila una"><div class="campo"><label>Impresora</label><select id="epImp">${optsImp}</select></div></div>
+    <div class="seccion-modal" style="margin-top:4px"><div class="detalle-linea"><span>Costo</span><b id="epCosto">$0</b></div><div class="detalle-linea" style="border:0"><span>Precio por unidad</span><b id="epPrecio" style="color:var(--violeta-osc);font-size:18px">$0</b></div></div>
+    <div class="acciones" style="margin-top:14px"><button class="btn" id="epOk" style="flex:1">Guardar producto</button><button class="btn sec" onclick="cerrarModal()">Cancelar</button></div>`);
+  const leer = () => ({
+    nombre: $('epNom').value.trim(), categoria: $('epCat').value.trim(), impresoraId: $('epImp').value,
+    filamentos: filas.filter(r => num(r.gramos)).map(r => ({filId: r.filId, gramos: num(r.gramos)})),
+    horas: num($('epH').value) + num($('epM').value) / 60, trabajoMin: num($('epT').value), disenoMin: num($('epD').value),
+    post: num($('epP').value), empaque: num($('epE').value), notas: p.notas || ''
+  });
+  const preview = () => { const r = precioUnit(leer()); $('epCosto').textContent = fmt(r.costo); $('epPrecio').textContent = fmt(r.precio); };
+  const pintarFil = () => {
+    $('epFil').innerHTML = filas.map((r, i) => `<div class="filrow"><select data-i="${i}" data-k="filId">${optsFil(r.filId)}</select>
+      <input data-i="${i}" data-k="gramos" type="number" min="0" inputmode="decimal" placeholder="gramos" value="${r.gramos || ''}">
+      <button class="x" type="button" data-del="${i}" ${filas.length === 1 ? 'style="visibility:hidden"' : ''}>×</button></div>`).join('');
+  };
+  pintarFil(); preview();
+  $('epFil').addEventListener('input', e => { const el = e.target; if (!el.dataset.k) return; filas[el.dataset.i][el.dataset.k] = el.value; preview(); });
+  $('epFil').addEventListener('change', e => { const el = e.target; if (!el.dataset.k) return; filas[el.dataset.i][el.dataset.k] = el.value; preview(); });
+  $('epFil').addEventListener('click', e => { const d = e.target.dataset.del; if (d !== undefined) { filas.splice(+d, 1); pintarFil(); preview(); } });
+  $('epAddFil').onclick = () => { filas.push({filId: '', gramos: ''}); pintarFil(); };
+  document.querySelectorAll('#modalCont input, #modalCont select').forEach(el => { if (!el.closest('#epFil')) el.addEventListener('input', preview); });
+  $('epOk').onclick = async () => {
+    const d = leer();
+    if (!d.nombre) { toast('Poné un nombre'); return; }
+    if (!d.filamentos.length && !d.horas) { toast('Cargá gramos o tiempo de impresión'); return; }
+    await guardarDoc('productos', p.id || nuevoUuid(), d).then(() => { cerrarModal(); toast('Producto guardado ✓'); }).catch(()=>{});
+  };
+}
 function renderProductos(){
   const q = normal($('buscarProd').value);
   const lista = estado.productos.filter(p => !q || normal(p.nombre + ' ' + p.categoria).includes(q))
     .sort((a, b) => (a.categoria || 'zzz').localeCompare(b.categoria || 'zzz') || a.nombre.localeCompare(b.nombre));
-  if (!estado.productos.length) { $('listaProd').innerHTML = `<div class="vacio"><b>Todavía no hay productos</b>Calculá una pieza en Calcular y tocá "Guardar como producto". La próxima vez la elegís de la lista.</div>`; return; }
+  if (!estado.productos.length) { $('listaProd').innerHTML = `<div class="vacio"><b>Todavía no hay productos</b>Tocá "+ Nuevo producto" y cargá nombre, filamento y tiempo. Después lo elegís en Calcular escribiendo su nombre.</div>`; return; }
   if (!lista.length) { $('listaProd').innerHTML = `<div class="vacio">No se encontró ese producto.</div>`; return; }
   let cat = null;
   $('listaProd').innerHTML = lista.map(p => {
@@ -823,7 +919,7 @@ function verProducto(id){
       <button class="btn peligro" id="vpBorrar">Borrar</button><button class="btn sec" onclick="cerrarModal()">Cerrar</button>
     </div>`);
   $('vpUsar').onclick = () => { limpiar(); $('cCantidad').value = 1; usarProducto(p.id); cerrarModal(); irA('calcular'); };
-  $('vpEditar').onclick = () => { limpiar(); $('cCantidad').value = 1; usarProducto(p.id); editandoProdId = p.id; cerrarModal(); irA('calcular'); toast('Cambiá lo que quieras y tocá "Guardar como producto"'); };
+  $('vpEditar').onclick = () => editarProducto(p);
   $('vpBorrar').onclick = () => confirmar('¿Borrar este producto? Los presupuestos guardados no se borran.', async () => { await borrarDoc('productos', p.id); cerrarModal(); });
 }
 $('copiarLista').onclick = () => {
