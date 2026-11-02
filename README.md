@@ -11,12 +11,13 @@ Funciona en cualquier celular o PC. Los datos quedan en **Supabase** (PostgreSQL
 | `config.js` | URL y clave de tu Supabase (**editar**) |
 | `supabase.sql` | Crea las tablas, la seguridad y el tiempo real |
 | `supabase-v2.sql` | Agrega clientes, pedidos y formas de pago (correr después de `supabase.sql`) |
+| `supabase-v3.sql` | Agrega el catálogo de productos (correr después de `supabase-v2.sql`) |
 | `manifest.webmanifest`, `icon-*.png` | Para instalarla como app en el celu |
 
 ## 1. Supabase (base de datos), unos 10 minutos
 
 1. Entrá a <https://supabase.com>, creá una cuenta y un **New project** (región *São Paulo*, la más cercana). Guardá la contraseña de la base.
-2. En el menú, abrí **SQL Editor → New query**, pegá todo `supabase.sql` y tocá **Run**. Tiene que decir *Success*. Después hacé lo mismo con `supabase-v2.sql`.
+2. En el menú, abrí **SQL Editor → New query**, pegá todo `supabase.sql` y tocá **Run**. Tiene que decir *Success*. Después hacé lo mismo con `supabase-v2.sql` y `supabase-v3.sql`.
 3. En **Authentication → Users → Add user → Create new user**:
    - Creá tu usuario (email + contraseña) y tildá **Auto Confirm User**.
    - Repetí para la otra persona.
@@ -47,6 +48,12 @@ Funciona en cualquier celular o PC. Los datos quedan en **Supabase** (PostgreSQL
 - La pestaña **Pedidos** muestra lo que hay que fabricar, ordenado por fecha de entrega, con el filamento total necesario y las horas de impresión.
 - Cada pedido guarda la forma de pago (MP Mili, MP Lucas o Efectivo), lo cobrado y el saldo.
 - Los clientes se crean solos al guardar un presupuesto. En **Clientes** podés agregar su WhatsApp e Instagram.
+
+## Productos
+
+- Calculá una pieza y tocá **Guardar como producto**. Se guarda la receta de **1 unidad** (si tenías varias unidades cargadas, divide solo).
+- En **Calcular → Producto del catálogo** lo elegís y, al cambiar las unidades, se multiplican gramos, horas, mano de obra y extras.
+- En **Productos** ves el precio actualizado de cada uno y podés copiar la lista de precios para mandar por WhatsApp.
 
 ## Seguridad
 

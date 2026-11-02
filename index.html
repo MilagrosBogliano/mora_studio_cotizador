@@ -141,6 +141,7 @@ textarea{width:100%;font:600 14px Nunito,sans-serif;padding:10px;border:1.5px so
   <nav id="nav">
     <button data-v="pedidos">Pedidos</button>
     <button data-v="calcular" class="activo">Calcular</button>
+    <button data-v="productos">Productos</button>
     <button data-v="presupuestos">Presupuestos</button>
     <button data-v="clientes">Clientes</button>
     <button data-v="filamentos">Filamentos</button>
@@ -157,6 +158,9 @@ textarea{width:100%;font:600 14px Nunito,sans-serif;padding:10px;border:1.5px so
     <div class="grid">
       <div class="card">
         <h2><span class="num">1</span>Pedido</h2>
+        <div class="fila una"><div class="campo"><label>Producto del catálogo</label>
+          <select id="cProducto"><option value="">— Pieza personalizada —</option></select>
+          <div class="det" id="cProdAyuda" style="margin:4px 0 0;display:none">Elegiste un producto: gramos, horas, mano de obra y extras se multiplican solos por las unidades.</div></div></div>
         <div class="fila">
           <div class="campo"><label>Cliente</label><input id="cCliente" placeholder="Nombre o @usuario" list="dlClientes" autocomplete="off"><datalist id="dlClientes"></datalist></div>
           <div class="campo"><label>Pieza</label><input id="cPieza" placeholder="Ej: llavero corazón"></div>
@@ -243,6 +247,7 @@ textarea{width:100%;font:600 14px Nunito,sans-serif;padding:10px;border:1.5px so
         <div class="acciones">
           <button class="btn" id="btnGuardar" style="flex:1">Guardar presupuesto</button>
           <button class="btn sec" id="btnWsp">Texto WhatsApp</button>
+          <button class="btn sec" id="btnProd">Guardar como producto</button>
           <button class="btn sec" id="btnLimpiar">Nuevo</button>
         </div>
       </div>
@@ -263,6 +268,13 @@ textarea{width:100%;font:600 14px Nunito,sans-serif;padding:10px;border:1.5px so
     <button data-f="debe">Con saldo</button>
   </div>
   <div class="lista" id="listaPed"></div>
+</section>
+
+<!-- PRODUCTOS -->
+<section class="vista" id="v-productos">
+  <div class="top"><h2>Productos</h2><div class="acciones"><button class="btn sec chico" id="copiarLista">Copiar lista de precios</button><button class="btn chico" id="addProducto">+ Nuevo producto</button></div></div>
+  <input class="buscar" id="buscarProd" placeholder="Buscar producto…">
+  <div class="lista" id="listaProd"></div>
 </section>
 
 <!-- CLIENTES -->
@@ -381,7 +393,7 @@ function chipPago(p){
 const CONFIG_DEF = {kwh: 0, hora: 0, diseno: 0, merma: 10, margen: 40, comision: 0, redondeo: 100};
 
 // ---------- almacenamiento: Supabase ----------
-const estado = {config: {...CONFIG_DEF}, filamentos: [], impresoras: [], presupuestos: [], clientes: []};
+const estado = {config: {...CONFIG_DEF}, filamentos: [], impresoras: [], presupuestos: [], clientes: [], productos: []};
 const modoLocal = false;
 let sb = null, usuario = null, iniciado = false;
 const nuevoUuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c === 'x' ? r : (r&3|8)).toString(16); }));
@@ -402,6 +414,8 @@ const presToDb = p => ({
   cliente_id: p.clienteId || null, fecha_entrega: p.fechaEntrega || null, forma_pago: p.formaPago || null, cobrado: num(p.cobrado),
   precio: Math.round(num(p.resultado?.precio)), costo: Math.round(num(p.resultado?.costo)), ganancia: Math.round(num(p.resultado?.ganancia))
 });
+const prodFromDb = r => ({id: r.id, nombre: r.nombre || '', categoria: r.categoria || '', impresoraId: r.impresora_id || '', filamentos: r.filamentos || [], horas: num(r.horas), trabajoMin: num(r.trabajo_min), disenoMin: num(r.diseno_min), post: num(r.post), empaque: num(r.empaque), notas: r.notas || ''});
+const prodToDb = p => ({nombre: p.nombre, categoria: p.categoria || null, impresora_id: p.impresoraId || null, filamentos: p.filamentos, horas: p.horas, trabajo_min: p.trabajoMin, diseno_min: p.disenoMin, post: p.post, empaque: p.empaque, notas: p.notas || null});
 const numFila = r => { const o = {...r}; for (const k of ['precio','peso','watts','vida','mant']) if (k in o) o[k] = num(o[k]); return o; };
 
 async function cargar(col){
@@ -409,7 +423,7 @@ async function cargar(col){
   q = col === 'presupuestos' ? q.order('fecha', {ascending: false}) : q.order('nombre');
   const {data, error} = await q;
   if (error) { toast('Error leyendo ' + col); console.error(error); return; }
-  estado[col] = col === 'presupuestos' ? data.map(presFromDb) : data.map(numFila);
+  estado[col] = col === 'presupuestos' ? data.map(presFromDb) : col === 'productos' ? data.map(prodFromDb) : data.map(numFila);
   render();
 }
 async function cargarConfig(){
@@ -420,7 +434,7 @@ async function cargarConfig(){
 }
 
 async function guardarDoc(col, id, data){
-  const fila = col === 'presupuestos' ? presToDb(data) : {...data};
+  const fila = col === 'presupuestos' ? presToDb(data) : col === 'productos' ? prodToDb(data) : {...data};
   delete fila.id; fila.id = id;
   const {error} = await sb.from(col).upsert(fila);
   if (error) { console.error(error); toast('No se pudo guardar: ' + (error.message || '')); throw error; }
@@ -459,7 +473,7 @@ async function entrar(u){
   $('estadoDb').textContent = '● ' + (u.email || 'Conectada');
   $('quienSoy').textContent = u.email || '';
   if (iniciado) return; iniciado = true;
-  await Promise.all([cargarConfig(), cargar('filamentos'), cargar('impresoras'), cargar('presupuestos'), cargar('clientes')]);
+  await Promise.all([cargarConfig(), cargar('filamentos'), cargar('impresoras'), cargar('presupuestos'), cargar('clientes'), cargar('productos')]);
   if (estado.presupuestos.some(p => ACTIVOS.includes(p.estado))) irA('pedidos');
   escucharCambios();
 }
@@ -584,7 +598,7 @@ function limpiar(){
   editandoId = null;
   ['cCliente','cPieza','cNotas'].forEach(i => $(i).value = '');
   ['cHoras','cMin','cTrabajo','cDiseno','cPost','cEmpaque'].forEach(i => $(i).value = 0);
-  $('cCantidad').value = 1;
+  $('cCantidad').value = 1; $('cProducto').value = ''; prodBase = null; editandoProdId = null; $('cProdAyuda').style.display = 'none';
   $('cEstado').value = 'pendiente'; $('cEntrega').value = ''; $('cPago').value = ''; $('cCobrado').value = 0;
   const c = estado.config; $('cMerma').value = c.merma; $('cMargen').value = c.margen; $('cComision').value = c.comision;
   filRows = [{filId: estado.filamentos[0]?.id || '', gramos: 0}];
@@ -706,6 +720,7 @@ function verPres(id){
 
 function cargarEnCalc(p, editar){
   editandoId = editar ? p.id : null;
+  prodBase = null; editandoProdId = null; $('cProducto').value = ''; $('cProdAyuda').style.display = 'none';
   $('cCliente').value = editar ? p.cliente : ''; $('cPieza').value = p.pieza || ''; $('cCantidad').value = p.cantidad || 1;
   const h = num(p.horas); $('cHoras').value = Math.floor(h); $('cMin').value = Math.round((h - Math.floor(h)) * 60);
   $('cTrabajo').value = p.trabajoMin || 0; $('cDiseno').value = p.disenoMin || 0; $('cPost').value = p.post || 0; $('cEmpaque').value = p.empaque || 0;
@@ -716,6 +731,108 @@ function cargarEnCalc(p, editar){
   $('btnGuardar').textContent = editar ? 'Actualizar presupuesto' : 'Guardar presupuesto';
   renderFilRows(); calcular(); cerrarModal(); irA('calcular');
 }
+
+// ---------- productos (catálogo) ----------
+let prodBase = null, editandoProdId = null;
+const r2 = n => Math.round(n * 100) / 100;
+const durac = h => { const m = Math.round(h * 60); if (m < 60) return m + ' min'; const hh = Math.floor(m / 60), mm = m % 60; return hh + ' h' + (mm ? ' ' + mm + ' min' : ''); };
+function renderProdSelect(){
+  const sel = $('cProducto'), v = sel.value;
+  sel.innerHTML = '<option value="">— Pieza personalizada —</option>' + [...estado.productos].sort((a, b) => a.nombre.localeCompare(b.nombre)).map(p => `<option value="${esc(p.id)}">${esc(p.nombre)}</option>`).join('');
+  if (v && estado.productos.some(p => p.id === v)) sel.value = v;
+}
+// aplica la receta de 1 unidad × unidades al formulario
+function aplicarProducto(){
+  if (!prodBase) return;
+  const u = Math.max(1, Math.round(num($('cCantidad').value)) || 1), b = prodBase;
+  $('cPieza').value = b.nombre;
+  if (b.impresoraId && estado.impresoras.some(i => i.id === b.impresoraId)) $('cImpresora').value = b.impresoraId;
+  filRows = (b.filamentos.length ? b.filamentos : [{filId: '', gramos: 0}]).map(r => ({filId: r.filId, gramos: r2(num(r.gramos) * u)}));
+  const h = b.horas * u; $('cHoras').value = Math.floor(h); $('cMin').value = Math.round((h - Math.floor(h)) * 60);
+  $('cTrabajo').value = Math.round(b.trabajoMin * u); $('cDiseno').value = Math.round(b.disenoMin);
+  $('cPost').value = r2(b.post * u); $('cEmpaque').value = r2(b.empaque * u);
+  if (b.notas && !$('cNotas').value) $('cNotas').value = b.notas;
+  renderFilRows(); calcular();
+}
+function usarProducto(id){
+  const p = estado.productos.find(x => x.id === id); if (!p) return;
+  prodBase = {...p}; $('cProducto').value = id; $('cProdAyuda').style.display = '';
+  aplicarProducto();
+}
+$('cProducto').addEventListener('change', e => { const id = e.target.value; if (id) usarProducto(id); else { prodBase = null; $('cProdAyuda').style.display = 'none'; } });
+$('cCantidad').addEventListener('input', () => { if (prodBase) aplicarProducto(); });
+
+// guarda lo que hay en la calculadora como receta de 1 unidad
+$('btnProd').onclick = () => {
+  calcular(); const f = ultimo.f, u = f.cantidad;
+  if (!f.filamentos.some(r => num(r.gramos)) && !f.horas) { toast('Cargá gramos o tiempo primero'); return; }
+  const editando = editandoProdId && estado.productos.find(x => x.id === editandoProdId);
+  abrirModal(`<h3>${editando ? 'Actualizar producto' : 'Guardar como producto'}</h3>
+    <div class="fila una"><div class="campo"><label>Nombre del producto</label><input id="pNom" value="${esc(editando ? editando.nombre : f.pieza)}" placeholder="Ej: Llavero corazón"></div></div>
+    <div class="fila una"><div class="campo"><label>Categoría <span class="ayuda">opcional</span></label><input id="pCat" value="${esc(editando ? editando.categoria : '')}" placeholder="Ej: Llaveros, Macetas, Figuras" list="dlCat"><datalist id="dlCat">${[...new Set(estado.productos.map(p => p.categoria).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist></div></div>
+    ${u > 1 ? `<div class="aviso">Tenés ${u} unidades cargadas: guardo los valores <b>por unidad</b> (gramos, horas, mano de obra y extras ÷ ${u}).</div>` : ''}
+    <div class="acciones"><button class="btn" id="pOk" style="flex:1">${editando ? 'Actualizar' : 'Guardar'}</button>${editando ? '<button class="btn sec" id="pNuevo">Guardar como nuevo</button>' : ''}<button class="btn sec" onclick="cerrarModal()">Cancelar</button></div>`);
+  const datos = () => ({
+    nombre: $('pNom').value.trim(), categoria: $('pCat').value.trim(), impresoraId: f.impresoraId,
+    filamentos: f.filamentos.filter(r => num(r.gramos)).map(r => ({filId: r.filId, gramos: r2(num(r.gramos) / u)})),
+    horas: f.horas / u, trabajoMin: f.trabajoMin / u, disenoMin: f.disenoMin, post: f.post / u, empaque: f.empaque / u, notas: ''
+  });
+  const guardar = async id => {
+    const d = datos(); if (!d.nombre) { toast('Poné un nombre'); return; }
+    await guardarDoc('productos', id, d).then(() => { cerrarModal(); toast('Producto guardado ✓'); editandoProdId = id; prodBase = {...d, id}; $('cProducto').value = id; $('cProdAyuda').style.display = ''; }).catch(()=>{});
+  };
+  $('pOk').onclick = () => guardar(editando ? editando.id : nuevoUuid());
+  if (editando) $('pNuevo').onclick = () => guardar(nuevoUuid());
+};
+
+function precioUnit(p){
+  const f = {cantidad: 1, impresoraId: p.impresoraId, filamentos: p.filamentos, horas: p.horas, trabajoMin: p.trabajoMin, disenoMin: p.disenoMin,
+    post: p.post, empaque: p.empaque, merma: num(estado.config.merma), margen: num(estado.config.margen), comision: num(estado.config.comision)};
+  return computar(f);
+}
+$('buscarProd').addEventListener('input', () => renderProductos());
+$('addProducto').onclick = () => { limpiar(); irA('calcular'); toast('Cargá los datos de 1 unidad y tocá "Guardar como producto"'); };
+function renderProductos(){
+  const q = normal($('buscarProd').value);
+  const lista = estado.productos.filter(p => !q || normal(p.nombre + ' ' + p.categoria).includes(q))
+    .sort((a, b) => (a.categoria || 'zzz').localeCompare(b.categoria || 'zzz') || a.nombre.localeCompare(b.nombre));
+  if (!estado.productos.length) { $('listaProd').innerHTML = `<div class="vacio"><b>Todavía no hay productos</b>Calculá una pieza en Calcular y tocá "Guardar como producto". La próxima vez la elegís de la lista.</div>`; return; }
+  if (!lista.length) { $('listaProd').innerHTML = `<div class="vacio">No se encontró ese producto.</div>`; return; }
+  let cat = null;
+  $('listaProd').innerHTML = lista.map(p => {
+    const r = precioUnit(p);
+    const head = p.categoria !== cat ? (cat = p.categoria, `<div class="det" style="margin:6px 2px 0;font-weight:800;text-transform:uppercase;letter-spacing:.4px">${esc(p.categoria || 'Sin categoría')}</div>`) : '';
+    return head + `<div class="item" data-id="${esc(p.id)}" style="cursor:pointer"><div class="info">
+      <div class="t">${esc(p.nombre)}</div>
+      <div class="d">${(r.detalleMat || []).map(m => esc(m.nombre) + ' ' + m.gramos + 'g').join(', ') || '—'} · ${durac(p.horas)}</div>
+    </div><div class="m">${fmt(r.precio)}<div class="ayuda" style="text-align:right">costo ${fmt(r.costo)}</div></div></div>`;
+  }).join('');
+}
+$('listaProd').addEventListener('click', e => { const it = e.target.closest('.item'); if (it) verProducto(it.dataset.id); });
+function verProducto(id){
+  const p = estado.productos.find(x => x.id === id); if (!p) return; const r = precioUnit(p);
+  const L = (a, b) => `<div class="detalle-linea"><span>${a}</span><b>${b}</b></div>`;
+  const imp = estado.impresoras.find(i => i.id === p.impresoraId);
+  abrirModal(`<h3>${esc(p.nombre)}</h3>
+    ${p.categoria ? L('Categoría', esc(p.categoria)) : ''}${L('Filamento (1 unidad)', esc((r.detalleMat || []).map(m => m.nombre + ' ' + m.gramos + 'g').join(', ') || '—'))}
+    ${L('Impresión', durac(p.horas))}${L('Impresora', esc(imp ? imp.nombre : '—'))}${L('Tu trabajo', Math.round(p.trabajoMin) + ' min')}
+    ${L('Costo real', fmt(r.costo))}${L('Ganancia', fmt(r.ganancia))}${L('Precio por unidad', '<span style="color:var(--violeta-osc);font-size:18px">' + fmt(r.precio) + '</span>')}
+    <div class="det" style="margin-top:8px">Precio con los valores de hoy (filamento, luz, tu hora, ganancia ${num(estado.config.margen)}%).</div>
+    <div class="acciones" style="margin-top:14px">
+      <button class="btn" id="vpUsar" style="flex:1">Cotizar</button><button class="btn sec" id="vpEditar">Editar</button>
+      <button class="btn peligro" id="vpBorrar">Borrar</button><button class="btn sec" onclick="cerrarModal()">Cerrar</button>
+    </div>`);
+  $('vpUsar').onclick = () => { limpiar(); $('cCantidad').value = 1; usarProducto(p.id); cerrarModal(); irA('calcular'); };
+  $('vpEditar').onclick = () => { limpiar(); $('cCantidad').value = 1; usarProducto(p.id); editandoProdId = p.id; cerrarModal(); irA('calcular'); toast('Cambiá lo que quieras y tocá "Guardar como producto"'); };
+  $('vpBorrar').onclick = () => confirmar('¿Borrar este producto? Los presupuestos guardados no se borran.', async () => { await borrarDoc('productos', p.id); cerrarModal(); });
+}
+$('copiarLista').onclick = () => {
+  const lista = [...estado.productos].sort((a, b) => (a.categoria || 'zzz').localeCompare(b.categoria || 'zzz') || a.nombre.localeCompare(b.nombre));
+  if (!lista.length) { toast('No hay productos'); return; }
+  let t = '💜 Lista de precios · Mora Studio\n', cat = null;
+  lista.forEach(p => { if (p.categoria !== cat) { cat = p.categoria; t += `\n${(cat || 'Otros').toUpperCase()}\n`; } t += `• ${p.nombre}: ${fmt(precioUnit(p).precio)}\n`; });
+  mostrarTexto(t.trim());
+};
 
 // ---------- pedidos (cola de producción) ----------
 let filtroPed = 'activos';
@@ -949,7 +1066,7 @@ function confirmar(msg, si){
 // ---------- render general ----------
 function render(){
   const filPrev = filRows.map(r => r.filId);
-  renderImpSelect(); renderFilRows(); renderFil(); renderImp(); renderPres(); renderPed(); renderClientes(); renderDatalist(); renderAviso();
+  renderImpSelect(); renderFilRows(); renderFil(); renderImp(); renderPres(); renderPed(); renderClientes(); renderDatalist(); renderProductos(); renderProdSelect(); renderAviso();
   if (filRows.length === 1 && !filRows[0].filId && estado.filamentos.length) { filRows[0].filId = estado.filamentos[0].id; renderFilRows(); }
   calcular();
 }
